@@ -24,7 +24,7 @@ def main():
     #              it is explicitly set the fee.
     # NOTE(powvt): -deprecatedrpc=warnings is needed because when the rpc calls `getnetworkinfo` the warnings field int he sctruct that is returned on regtest is an array
     #              of strings and on testnet/mainnet it is a string. https://github.com/bitcoin/bitcoin/blob/413844f1c2a3d8f7cfef822f348f26df488b03c7/doc/release-notes-29845.md?plain=1
-    run_command(f"bitcoind -regtest -daemon -fallbackfee=1.0 -maxtxfee=1.1 -deprecatedrpc=warnings")
+    run_command(f"bitcoind -regtest -daemon -fallbackfee=1.0 -maxtxfee=1.1 -deprecatedrpc=warnings", include_btc_core_dir=True)
     time.sleep(2)  # Give bitcoind some time to start
 
     # Create a wallet
@@ -68,6 +68,7 @@ def main():
     # fee = inputs - outputs = 50 BTC - 49.9999 BTC = 0.0001 BTC
 
     raw_tx = run_command(f"bitcoin-cli -regtest createrawtransaction '{json.dumps(inputs)}' '{json.dumps(outputs)}'", include_btc_core_dir=True)
+    print(raw_tx)
 
     # Sign the raw transaction
     print("Signing raw transaction...")

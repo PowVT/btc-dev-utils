@@ -4,6 +4,8 @@ import json
 
 BTC_CORE_DIR = "~/bitcoin/src/"
 
+FEE_RATE=15
+
 def run_command(command, include_btc_core_dir=False):
     if include_btc_core_dir:
         command = f"{BTC_CORE_DIR}{command}"
@@ -32,8 +34,10 @@ def main():
     print("Starting ord service...")
     # new process to run ord in regtest mode
     subprocess.Popen(["./target/release/ord", "--regtest", "--bitcoin-rpc-username=yourusername", "--bitcoin-rpc-password=yourpassword", "server"], cwd="../ord")
-
     time.sleep(2)  # Give ord some time to start
+
+    # Utility for checking the ord server settings, uncomment to view ord server settings
+    # print(run_command(f"../ord/target/release/ord --regtest --bitcoin-rpc-username=yourusername --bitcoin-rpc-password=yourpassword settings"))
 
     # Create a wallet
     print("Creating wallet...")
@@ -55,56 +59,27 @@ def main():
 
     if balance < 50:
         raise Exception("Failed to mine sufficient balance")
+    
+    # create inscription commit and reveal transactions
+    print(f"Creating inscription...")
+    run_command(f"../ord/target/release/ord --regtest --bitcoin-rpc-username=yourusername --bitcoin-rpc-password=yourpassword wallet inscribe --fee-rate {FEE_RATE}  --file ./mockOrdContent.txt")
 
-    # Generate a new address to send 1 BTC to
-    print("Generating recipient address...")
-    recipient_address = json.loads(run_command(f"../ord/target/release/ord --regtest --bitcoin-rpc-username=yourusername --bitcoin-rpc-password=yourpassword wallet receive"))['addresses'][0]
+    # mine 10 blocks to confirm the commit and reveal transactions
+    run_command(f"bitcoin-cli -regtest generatetoaddress 10 {mining_address}", include_btc_core_dir=True)
+    time.sleep(10) # give time for server to catch up, ord server default polling rate is 5s
 
-    # Create a raw transaction
-    print("Creating raw transaction...")
-    unspent = json.loads(run_command(f"bitcoin-cli -regtest -rpcwallet=ord listunspent 1 9999999", include_btc_core_dir=True))
-    if len(unspent) == 0:
-        raise Exception("No unspent transactions found")
+    # check that the inscription is in the wallet
+    inscriptions = run_command(f"../ord/target/release/ord --regtest --bitcoin-rpc-username=yourusername --bitcoin-rpc-password=yourpassword wallet inscriptions")
+    print(f"Inscription Data: {inscriptions}")
 
-    txid = unspent[0]['txid']
-    vout = unspent[0]['vout']
-    inputs = [{"txid": txid, "vout": vout}]
-    outputs = {recipient_address: 49.9999}
-
-    # Bitcoin config default: maxfeerate = 1 BTC/kvB
-    # UTXO's cannot be partially spent
-    # fee = inputs - outputs = 50 BTC - 49.9999 BTC = 0.0001 BTC
-
-    raw_tx = run_command(f"bitcoin-cli -regtest createrawtransaction '{json.dumps(inputs)}' '{json.dumps(outputs)}'", include_btc_core_dir=True)
-
-    # Sign the raw transaction
-    print("Signing raw transaction...")
-    signed_tx = json.loads(run_command(f"bitcoin-cli -regtest signrawtransactionwithwallet {raw_tx}", include_btc_core_dir=True))
-    if not signed_tx['complete']:
-        raise Exception("Failed to sign the transaction")
-
-    signed_raw_tx = signed_tx['hex']
-    print(f"Signed raw transaction: {signed_raw_tx}")
-
-    # Calculate the fee rate
-    fee = balance - outputs[recipient_address]
-    raw_tx_size = len(signed_raw_tx) // 2  # hex string length // 2: converts string to bytes and round down
-    fee_rate = (fee * 1e8) / (raw_tx_size / 1000)  # satoshis per byte
-
-    print(f"Fee: {fee} BTC")
-    print(f"Fee rate: {fee_rate} sats/vB")
-    print(f"Fee rate: {fee_rate / 1e8 * 1000} BTC/kvB")
-
-    # mine 50 blocks, one every 3 seconds
-    print("Mining blocks...")
-    for i in range(50):
-        run_command(f"bitcoin-cli -regtest generatetoaddress 1 {mining_address}", include_btc_core_dir=True)
-        time.sleep(3)
-
-    # View wallet balances
+    # View wallet bitcoin balances
     balance = run_command(f"bitcoin-cli -regtest listaddressgroupings", include_btc_core_dir=True)
     balance = json.loads(balance)
-    print(f"Wallet balances: {balance}")
+    print(f"Wallet bitcoin balances: {balance}")
+
+    # get wallet ordinal balance
+    ord_balances = run_command(f"../ord/target/release/ord --regtest --bitcoin-rpc-username=yourusername --bitcoin-rpc-password=yourpassword wallet balance")
+    print(f"Wallet ordinal balance: {ord_balances}")
 
     # kill the ord service on port :80
     print("Stopping ord service...")
@@ -113,7 +88,6 @@ def main():
 
     # Remove the regtest folder in ord data folder
     run_command("rm -rf ../Library/Application\\ Support/ord/regtest")
-
 
     # Stop the bitcoind daemon
     print("Stopping regtest bitcoind...")
