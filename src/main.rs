@@ -138,17 +138,6 @@ fn regtest_sign_tx() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn regtest_inscribe_ord() -> Result<(), Box<dyn std::error::Error>> {
-    // println!("Starting ord service...");
-    // let mut ord_command = Command::new("../ord/target/release/ord");
-    // ord_command
-    //     .arg("--regtest")
-    //     .arg("--bitcoin-rpc-username=user")
-    //     .arg("--bitcoin-rpc-password=password")
-    //     .arg("server")
-    //     .current_dir("../ord");
-    // let _ = ord_command.spawn().expect("Failed to start ord service");
-    // thread::sleep(Duration::from_secs(2));
-
     println!("Creating wallet...");
     run_command("../ord/target/release/ord --regtest --bitcoin-rpc-username=user --bitcoin-rpc-password=password wallet create", false);
 
@@ -187,14 +176,6 @@ fn regtest_inscribe_ord() -> Result<(), Box<dyn std::error::Error>> {
 
     let ord_balances = run_command("../ord/target/release/ord --regtest --bitcoin-rpc-username=user --bitcoin-rpc-password=password wallet balance", false);
     println!("Wallet ordinal balance: {:?}", ord_balances);
-
-    // println!("Stopping ord service...");
-    // run_command("kill $(lsof -t -i:80)", false);
-    // thread::sleep(Duration::from_secs(5));
-
-    // fs::remove_dir_all("../Library/Application\\ Support/ord/regtest").expect("Failed to remove regtest folder in ord data folder");
-
-    // fs::remove_dir_all("../Library/Application\\ Support/Bitcoin/regtest").expect("Failed to remove regtest folder in bitcoind data folder");
 
     Ok(())
 }
