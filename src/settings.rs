@@ -9,10 +9,6 @@ pub(crate) struct Settings {
     pub network: Network,
     pub bitcoin_rpc_username: String,
     pub bitcoin_rpc_password: String,
-    pub create_wallets: bool,
-    pub miner_wallet_name: String,
-    pub fee_wallet_name: String,
-    pub vault_file: Option<String>,
 }
 
 impl Settings {
@@ -29,10 +25,6 @@ impl Default for Settings {
             network: Network::Regtest,
             bitcoin_rpc_username: "user".to_string(),
             bitcoin_rpc_password: "password".to_string(),
-            create_wallets: true,
-            miner_wallet_name: "miner".to_string(),
-            fee_wallet_name: "fee_payment".to_string(),
-            vault_file: None,
         }
     }
 }

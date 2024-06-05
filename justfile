@@ -36,7 +36,7 @@ clean-bitcoin-data:
 start-ord *ARGS:
     mkdir -p {{ ord_datadir }}
     @if lsof -ti :18443 >/dev/null 2>&1; then \
-        ~/ord/target/release/ord --regtest --bitcoin-rpc-username=user --bitcoin-rpc-password=password --data-dir={{ord_datadir}} server; \
+        ~/ord/target/release/ord --regtest --bitcoin-rpc-username=user --bitcoin-rpc-password=password --data-dir={{ord_datadir}} {{ ARGS }} server; \
         echo "ord server on port 80 started."; \
     else \
         echo "run just boostrap-btc before starting ord server."; \
@@ -70,3 +70,10 @@ bootstrap-ord:
     just clean-ord-data
     just stop-ord
     just start-ord
+
+# stop all services and remove all cached data
+kill-all:
+    just stop-bitcoind
+    just stop-ord
+    just clean-bitcoin-data
+    just clean-ord-data

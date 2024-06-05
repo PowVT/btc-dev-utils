@@ -24,11 +24,14 @@ Inspiration for this repository came from the [taproot-wizards/purrfect_vault](h
 
 2. **Run the Scripts**
 
-These steps use `just` as a command wrapper. See the `justfile` for executing the commands directly.
+These steps use `just` as a command wrapper. See the `justfile` for executing the commands directly. The commands `just bootstrap-btc` and `just bootstrap-ord` will need to run in the background in separate terminals. Running any of the demo commands will need to be run in a third terminal. After each of the demo commands run, you will need to restart the btc and ord services. You can use `just kill-all` to stop the btc and ord services and also delete the cache they created in the 'data' folder.
+
+Run `just -l` to see a list of all the justfile commands.
 
    ```sh
+
    just bootstrap-btc
-   just boostrap-ord
+   just bootstrap-ord
    
    # create a btc signed tx
    just sign-tx
@@ -36,6 +39,12 @@ These steps use `just` as a command wrapper. See the `justfile` for executing th
    # inscribe ordinal
    just inscribe-ord
    ```
+
+3. **Settings**
+
+The `settings.toml` file is a way to configure the Bitcoin network to run and the credentials to use.
+
+***TODO: add a RPC URL for making external BTC network calls for either Testnet or Mainnet***
 
 ## License
 
