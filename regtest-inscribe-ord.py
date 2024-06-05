@@ -24,7 +24,7 @@ def main():
     # NOTE(powvt): if using regtest, must include -fallbackfee=1.0 -maxtxfee=1.1
     #              on regtest, usually there are not enough transactions so bitcoind cannot give a reliable estimate and, without it, the wallet will not create transactions unless
     #              it is explicitly set the fee.
-    # NOTE(powvt): -deprecatedrpc=warnings is needed because when the rpc calls `getnetworkinfo` the warnings field int he sctruct that is returned on regtest is an array
+    # NOTE(powvt): -deprecatedrpc=warnings is needed because when the rpc calls `getnetworkinfo` the warnings field in the struct that is returned on regtest is an array
     #              of strings and on testnet/mainnet it is a string. https://github.com/bitcoin/bitcoin/blob/413844f1c2a3d8f7cfef822f348f26df488b03c7/doc/release-notes-29845.md?plain=1
     # NOTE(powvt): -txindex=1 is needed to enable blockchain transaction queries in the ord wallet service
     run_command(f"bitcoind -regtest -daemon -fallbackfee=1.0 -maxtxfee=1.1 -deprecatedrpc=warnings -txindex=1", include_btc_core_dir=True)
