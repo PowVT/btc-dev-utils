@@ -37,14 +37,6 @@ These steps use `just` as a command wrapper. See the `justfile` for executing th
    just inscribe-ord
    ```
 
-## Notes
-
-- Ensure that the regtest folder at `~/Library/Application\ Support/Bitcoin/regtest` does not exist before starting the script.
-- Make sure the `bitcoind` process is not running and the port is free before starting the script.
-- Ensure that the regtest folder at `~/Library/Application\ Support/ord/regtest` does not exist before starting the script.
-- Make sure the `ord` process is not running and the port (:80) is free before starting the script.
-- The script includes sleep commands to allow sufficient time for processes to start and complete.
-
 ## License
 
 This project is licensed under the MIT License.
