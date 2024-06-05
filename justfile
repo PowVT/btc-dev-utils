@@ -28,10 +28,21 @@ clean-bitcoin-data:
     rm -rf {{ bitcoin_datadir }}
 
 start-ord *ARGS:
-    ~/ord/target/release/ord --regtest --bitcoin-rpc-username=user --bitcoin-rpc-password=password server
+    @if lsof -ti :18443 >/dev/null 2>&1; then \
+        ~/ord/target/release/ord --regtest --bitcoin-rpc-username=user --bitcoin-rpc-password=password server; \
+        echo "ord server on port 80 started."; \
+    else \
+        echo "run just boostrap-btc before starting ord server."; \
+    fi
+    
 
 stop-ord:
-    kill $(lsof -t -i:80)
+    @if lsof -ti :80 >/dev/null 2>&1; then \
+        kill $(lsof -t -i:80); \
+        echo "ord server on port 80 killed."; \
+    else \
+        echo "No ord server found running on port 80."; \
+    fi
 
 clean-ord-data:
     rm -rf {{ ord_datadir }}
@@ -39,8 +50,12 @@ clean-ord-data:
 build:
     cargo build --release
 
-bootstrap:
+bootstrap-btc:
     just build
     just clean-bitcoin-data
     just start-bitcoind
 
+bootstrap-ord:
+    just clean-ord-data
+    just stop-ord
+    just start-ord

@@ -2,43 +2,18 @@
 
 ## Overview
 
-`btc-dev-utils` is a set of Python scripts designed to automate Bitcoin development tasks using Bitcoin Core in `regtest` or `testnet` mode on macOS. It is ideal for developers who want to test Bitcoin applications without using real Bitcoin on the mainnet.
+`btc-dev-utils` is designed to automate Bitcoin development tasks using Bitcoin Core in `regtest` mode on macOS. It is ideal for developers who want to test Bitcoin applications without using real Bitcoin on the mainnet and need a bootstrapped BTC execution environment in which to send test transactions.
 
-## Features
-
-- `regtest-mine-sign-tx.py`
-
-  - Start `bitcoind` in regtest mode.
-  - Create a Bitcoin wallet with descriptor support.
-  - Generate a new address for mining rewards.
-  - Mine blocks to accumulate Bitcoin.
-  - Check wallet balance.
-  - Create and sign raw transactions.
-  - Calculate transaction fees and fee rates.
-  - Automate mining and cleanup processes.
-
-- `regtest-ord-tx.py`
-  - Start `bitcoind` in regtest mode.
-  - Create a Bitcoin wallet with descriptor support.
-  - Generate a new address for mining rewards.
-  - Mine blocks to accumulate Bitcoin.
-  - Check wallet balance.
-  - Create and sign raw transactions.
-  - Calculate transaction fees and fee rates.
-  - Automate mining and cleanup processes.
+Inspiration for this repository came from the [taproot-wizards/purrfect_vault](https://github.com/taproot-wizards/purrfect_vault)
 
 ## Requirements
 
-- Python
-- Bitcoin Core installed and accessible at `../bitcoin`
-- `bitcoind` and `bitcoin-cli` binaries
-- Update `RPC_USER` and `RPC_PASSWORD` in the script to match your `bitcoin.conf`
-- Ordinals Core installed and accessible at `../ord`
-- `ord` binary
+- Bitcoin Core installed and accessible at `~/bitcoin`
+   - `bitcoind` and `bitcoin-cli` binaries
+- Ordinals Core installed and accessible at `~/ord`
+   - `ord` binary
 
-## Usage
-
-### Setup
+## Running the repository
 
 1. **Clone the Repository**
 
@@ -47,24 +22,19 @@
    cd btc-dev-utils
    ```
 
-2. **Update Configuration**
-   If you perfer to use a configuration file, you can update the `RPC_USER` and `RPC_PASSWORD` in the script to match your `bitcoin.conf` file.
-   Ensure that your `bitcoin.conf` file located at `~/Library/Application\ Support/Bitcoin/bitcoin.conf` contains the following lines:
+2. **Run the Scripts**
 
-   ```ini
-   regtest=1
-   rpcuser=yourusername
-   rpcpassword=yourpassword
-   ```
+These steps use `just` as a command wrapper. See the `justfile` for executing the commands directly.
 
-   Replace `yourusername` and `yourpassword` with your actual RPC username and password.
-
-### Running the Script
-
-1. **Run the Scripts**
    ```sh
-   python regtest-mine-sign-tx.py
-   python regtest-ord-tx.py
+   just bootstrap-btc
+   just boostrap-ord
+   
+   # create a btc signed tx
+   just sign-tx
+
+   # inscribe ordinal
+   just inscribe-ord
    ```
 
 ## Notes
