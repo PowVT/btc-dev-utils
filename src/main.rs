@@ -155,7 +155,9 @@ fn regtest_inscribe_ord() -> Result<(), Box<dyn std::error::Error>> {
     println!("Generating mining address...");
     let result = run_command("../ord/target/release/ord --regtest --bitcoin-rpc-username=user --bitcoin-rpc-password=password wallet receive", false);
     let json_str = result?;
-    let mining_address: String = serde_json::from_str::<serde_json::Value>(&json_str)?.to_string();
+    let value: Value = serde_json::from_str(&json_str)?;
+    let mining_address: String = value["addresses"][0].as_str().ok_or("No address found")?.to_string();
+    println!("{}",mining_address);
 
     println!("Mining blocks...");
     run_command(&format!("-regtest generatetoaddress 101 {}", mining_address), true);
