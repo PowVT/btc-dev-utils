@@ -1,4 +1,4 @@
-# btc-dev-utils
+# A Collection of Useful Bitcoin Development Tools
 
 ## Overview
 
@@ -6,14 +6,13 @@
 
 Inspiration for this repository came from the [taproot-wizards/purrfect_vault](https://github.com/taproot-wizards/purrfect_vault)
 
-## Requirements
+## Pre-requisites
 
-- Bitcoin Core installed and accessible at `~/bitcoin`
-   - `bitcoind` and `bitcoin-cli` binaries
-- Ordinals Core installed and accessible at `~/ord`
-   - `ord` binary
+You will need to be able to build bitcoin-core. Get set up with a C++ compiler for your platform. Additionally, you will need to be able to build rust binaries for running the ord services and the build-in scripts. Be sure you have a working rust installation. Both of these installations are outside the scope of this document.
 
-## Running the repository
+From there, there is a script in this project to build a copy of bitcoin-core and ord, and then you can use [Just](https://github.com/casey/just) as a command runner to build and run the demo.
+
+## How to run it
 
 1. **Clone the Repository**
 
@@ -22,13 +21,16 @@ Inspiration for this repository came from the [taproot-wizards/purrfect_vault](h
    cd btc-dev-utils
    ```
 
-2. **Run the Demo Scripts**
+2. **Building and running the demo**
 
 These steps use `just` as a command wrapper. See the `justfile` for executing the commands directly. Run `just -l` to see a list of all the justfile commands.
+
+First run the `just install-deps` command which will clone and setup the [bitcoin-core](https://github.com/bitcoin/bitcoin) and [ordinal](https://github.com/ordinals/ord) repos. Once this command finishes with "Setup complete", you can move on to running the bitcoin and ordinal services.
 
 The commands `just bootstrap-btc` and `just bootstrap-ord` will need to run in the background in separate terminals. The demo commands will need to be run in a third terminal. After each of the demo commands run, you will need to restart the btc and ord services. You can use `just kill-all` to stop the btc and ord services as well as delete the cache they created in the 'data' folder.
 
    ```sh
+   just install-deps
 
    just bootstrap-btc
    just bootstrap-ord
@@ -48,7 +50,7 @@ The `settings.toml` file is a way to configure the Bitcoin network and the netwo
 
 1. Configure a RPC URL for making external BTC network calls for either Testnet or Mainnet
 2. BTC network (regtest) to run indefinitely
-3. Native Bitcoin and Ord binaries
+3. Run the sign-tx script multiple times with the regest chain running indefinitely with `x` second block intervals.
 
 ## License
 

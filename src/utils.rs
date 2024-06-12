@@ -12,7 +12,7 @@ pub fn run_command(command: &str, target: Target, settings: &Settings) -> String
 
     if let Target::Bitcoin = target {
         let btc_cmd: String = format!(
-            "~/bitcoin/src/bitcoin-cli -{} -rpcuser={} -rpcpassword={} ",
+            "./bitcoin-core/src/bitcoin-cli -{} -rpcuser={} -rpcpassword={} ",
             settings.network,
             settings.bitcoin_rpc_username,
             settings.bitcoin_rpc_password
@@ -22,7 +22,7 @@ pub fn run_command(command: &str, target: Target, settings: &Settings) -> String
 
     if let Target::Ord = target {
         let ord_cmd: String = format!(
-            "~/ord/target/release/ord --{} --bitcoin-rpc-username={} --bitcoin-rpc-password={} ",
+            "./ord/target/release/ord --{} --bitcoin-rpc-username={} --bitcoin-rpc-password={} ",
             settings.network,
             settings.bitcoin_rpc_username,
             settings.bitcoin_rpc_password
