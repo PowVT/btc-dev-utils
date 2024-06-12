@@ -6,7 +6,7 @@
 
 Inspiration for this repository came from the [taproot-wizards/purrfect_vault](https://github.com/taproot-wizards/purrfect_vault)
 
-## Pre-requisites
+## Prerequisites
 
 You will need to be able to build bitcoin-core. Get set up with a C++ compiler for your platform. Additionally, you will need to be able to build rust binaries for running the ord services and the build-in scripts. Be sure you have a working rust installation. Both of these installations are outside the scope of this document.
 
@@ -46,11 +46,6 @@ The commands `just bootstrap-btc` and `just bootstrap-ord` will need to run in t
 
 The `settings.toml` file is a way to configure the Bitcoin network and the network credentials to use.
 
-## TODO
-
-1. Configure a RPC URL for making external BTC network calls for either Testnet or Mainnet
-2. BTC network (regtest) to run indefinitely
-3. Run the sign-tx script multiple times with the regest chain running indefinitely with `x` second block intervals.
 
 ## License
 
