@@ -29,7 +29,12 @@ start-bitcoind *ARGS:
 
 # stop Bitcoind server
 stop-bitcoind:
-    {{ bitcoin_cli }} stop
+    @if lsof -ti :18443 >/dev/null 2>&1; then \
+        {{ bitcoin_cli }} stop: \
+        echo "bitcoind server on port 18443 stopped."; \
+    else \
+        echo "No bitcoind server found running on port 18443."; \
+    fi
 
 # remove Bitcoind data
 clean-bitcoin-data:
@@ -38,6 +43,7 @@ clean-bitcoin-data:
 # bootstrap BTC chain
 bootstrap-btc:
     just clean-bitcoin-data
+    just stop-bitcoind
     just start-bitcoind
 
 # start the Ordinal server

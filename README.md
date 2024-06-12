@@ -1,4 +1,4 @@
-# A Collection of Useful Bitcoin Development Tools
+# A Collection of Bitcoin Development Tools
 
 ## Overview
 
@@ -40,6 +40,9 @@ The commands `just bootstrap-btc` and `just bootstrap-ord` will need to run in t
 
    # inscribe ordinal
    just inscribe-ord
+
+   # kill both btc and ord services
+   just kill-all
    ```
 
 3. **Settings**

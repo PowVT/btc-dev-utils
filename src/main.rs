@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn regtest_sign_tx(settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     // Check if wallet already exists
-    let wallet_name = "regtest_desc_wallet";
+    let wallet_name = "descriptor_wallet";
     let wallets = run_command("listwallets", Target::Bitcoin, settings);
     if !wallets.contains(wallet_name) {
         println!("Creating wallet...");
