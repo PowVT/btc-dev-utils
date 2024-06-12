@@ -3,12 +3,24 @@
 #################
 
 # create a signed BTC transaction
-sign-tx:
-    RUST_LOG=info ./target/release/btc-dev-utils sign-tx
+sign-tx wallet_name="default_wallet":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} sign-tx
 
 # create and ordinals inscription
 inscribe-ord:
     RUST_LOG=info ./target/release/btc-dev-utils inscribe-ord
+
+# get new wallet address
+get-new-address wallet_name="default_wallet":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} new-wallet-address
+
+# get wallet balance
+get-balance wallet_name="default_wallet":
+    RUST_LOG=info ./target/release/btc-dev-utils get-balance
+
+# mine blocks to a particular address
+mine-to-address wallet_name="default_wallet" blocks="20":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -b {{ blocks }} mine-to-address
 
 
 ###################################
@@ -30,7 +42,7 @@ start-bitcoind *ARGS:
 # stop Bitcoind server
 stop-bitcoind:
     @if lsof -ti :18443 >/dev/null 2>&1; then \
-        {{ bitcoin_cli }} stop: \
+        {{ bitcoin_cli }} stop; \
         echo "bitcoind server on port 18443 stopped."; \
     else \
         echo "No bitcoind server found running on port 18443."; \

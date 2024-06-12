@@ -47,7 +47,7 @@ The commands `just bootstrap-btc` and `just bootstrap-ord` will need to run in t
 
 3. **Settings**
 
-The `settings.toml` file is a way to configure the Bitcoin network and the network credentials to use.
+The `settings.toml` file is a way to configure the Bitcoin network and the network credentials to use. If you choose to update the username and/or password be sure to update the justfile as well.
 
 
 ## License

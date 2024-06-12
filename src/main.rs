@@ -6,9 +6,11 @@ use serde_json::{json, Value};
 
 mod settings;
 mod utils;
+mod wallet;
 
 use crate::settings::Settings;
 use crate::utils::{Target, run_command};
+use crate::wallet::Wallet;
 
 const MINING_BLOCKS: i32 = 101;
 const MIN_BALANCE: f64 = 50.0;
@@ -19,12 +21,23 @@ struct Cli {
     #[arg(short, long, default_value = "settings.toml")]
     settings_file: PathBuf,
 
+    /// Name of the wallet
+    #[arg(short, long, default_value = "miner")]
+    wallet_name: String,
+
+    /// Number of blocks to mine
+    #[arg(short, long, default_value = "10")]
+    blocks: u64,
+
     #[command(subcommand)]
     action: Action,
 }
 
 #[derive(Parser)]
 enum Action {
+    NewWalletAddress,
+    GetBalance,
+    MineToAddress,
     SignTx,
     InscribeOrd
 }
@@ -46,14 +59,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     match args.action {
-        Action::SignTx => regtest_sign_tx(&settings),
+        Action::NewWalletAddress => get_new_address(&args.wallet_name, &settings),
+        Action::GetBalance => get_balance(&args.wallet_name, &settings),
+        Action::MineToAddress => mine_to_address(&args.wallet_name, args.blocks, &settings),
+        Action::SignTx => regtest_sign_tx(&args.wallet_name, &settings),
         Action::InscribeOrd => regtest_inscribe_ord(&settings),
     }
 }
 
-fn regtest_sign_tx(settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+fn get_new_address(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let wallet = Wallet::new(wallet_name, settings);
+
+    let address = wallet.get_new_address();
+
+    println!("{}",format!("{:?}", address));
+
+    Ok(())
+}
+
+fn get_balance(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let miner_wallet = Wallet::new(wallet_name, settings);
+    let balance = miner_wallet.get_balance();
+
+    println!("{}",format!("{:?}", balance));
+
+    Ok(())
+}
+
+fn mine_to_address(wallet_name: &str, blocks: u64 , settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let miner_wallet = Wallet::new(wallet_name, settings);
+
+    let address = miner_wallet.get_new_address()?;
+
+    miner_wallet.mine_to_address(&address, Some(blocks))?;
+    Ok(())
+}
+
+fn regtest_sign_tx(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     // Check if wallet already exists
-    let wallet_name = "descriptor_wallet";
     let wallets = run_command("listwallets", Target::Bitcoin, settings);
     if !wallets.contains(wallet_name) {
         println!("Creating wallet...");

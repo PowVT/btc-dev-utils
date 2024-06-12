@@ -9,6 +9,7 @@ pub(crate) struct Settings {
     pub network: Network,
     pub bitcoin_rpc_username: String,
     pub bitcoin_rpc_password: String,
+    pub create_wallets: bool,
 }
 
 impl Settings {
@@ -25,6 +26,7 @@ impl Default for Settings {
             network: Network::Regtest,
             bitcoin_rpc_username: "user".to_string(),
             bitcoin_rpc_password: "password".to_string(),
+            create_wallets: true,
         }
     }
 }

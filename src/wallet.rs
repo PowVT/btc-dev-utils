@@ -111,6 +111,13 @@ impl Wallet {
         Ok(())
     }
 
+    pub(crate) fn mine_to_address(&self, address: &Address, blocks: Option<u64>) -> Result<()> {
+        info!("Mining {} blocks to {}", blocks.unwrap_or(1), address);
+        self.client
+            .generate_to_address(blocks.unwrap_or(1), address)?;
+        Ok(())
+    }
+
     pub(crate) fn get_balance(&self) -> Result<Amount> {
         let balance = self.client.get_balance(None, None)?;
         Ok(balance)
