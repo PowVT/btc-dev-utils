@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
 use bitcoin::{Address, Amount, Network, OutPoint, Transaction, Txid};
+use bitcoincore_rpc::json::ListUnspentQueryOptions;
 use bitcoincore_rpc::jsonrpc::serde_json::{json, Value};
 use bitcoincore_rpc::{Auth, Client, RawTx, RpcApi};
 use log::{debug, info};
@@ -110,13 +111,7 @@ impl Wallet {
         let address = self.get_new_address()?;
         self.client
             .generate_to_address(blocks.unwrap_or(1), &address)?;
-        Ok(())
-    }
-
-    pub(crate) fn mine_to_address(&self, address: &Address, blocks: Option<u64>) -> Result<()> {
-        info!("Mining {} blocks to {}", blocks.unwrap_or(1), address);
-        self.client
-            .generate_to_address(blocks.unwrap_or(1), address)?;
+        info!("Mined {} blocks to address {}", blocks.unwrap_or(1), address);
         Ok(())
     }
 
@@ -171,8 +166,14 @@ impl Wallet {
         Ok(tx)
     }
 
-    pub(crate) fn list_unspent(&self) -> Result<Vec<bitcoincore_rpc::json::ListUnspentResultEntry>> {
-        let unspent = self.client.list_unspent(Some(1), Some(9999999), None, None, None)?;
+    pub(crate) fn list_all_unspent(&self, query_options: Option<ListUnspentQueryOptions>) -> Result<Vec<bitcoincore_rpc::json::ListUnspentResultEntry>> {
+        let unspent = self.client.list_unspent(
+            Some(1),
+            Some(9999999),
+            None,
+            None,
+            query_options
+        )?;
         Ok(unspent)
     }
 }

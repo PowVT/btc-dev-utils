@@ -12,15 +12,27 @@ get-new-address wallet_name="default_wallet":
 
 # get wallet balance
 get-balance wallet_name="default_wallet":
-    RUST_LOG=info ./target/release/btc-dev-utils get-balance
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} get-balance
 
-# mine blocks to a particular address
-mine-to-address wallet_name="default_wallet" blocks="20":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -b {{ blocks }} mine-to-address
+# mine blocks to a particular wallet
+mine-blocks wallet_name="default_wallet" blocks="20":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -b {{ blocks }} mine-blocks
+
+# list unspent transactions
+list-unspent wallet_name="default_wallet":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} list-unspent
 
 # create a signed BTC transaction
 sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="10.0" fee_amount="0.00015":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -a {{ amount }} -f {{ fee_amount }} sign-tx
+
+# create and broadcast a signed BTC transaction
+sign-and-broadcast-tx wallet_name="default_wallet" recipient="recpient_address" amount="10.0" fee_amount="0.00015":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -a {{ amount }} -f {{ fee_amount }} sign-and-broadcast-tx
+
+# send BTC to recipient address
+send-btc wallet_name="default_wallet" recipient="recpient_address" amount="10.0":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -a {{ amount }} send-btc
 
 # create and ordinals inscription
 inscribe-ord:

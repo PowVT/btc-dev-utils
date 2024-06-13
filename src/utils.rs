@@ -1,6 +1,6 @@
-use std::process::{Command, exit};
+use std::{process::{exit, Command}, str::FromStr};
 
-use bitcoin::Amount;
+use bitcoin::{Address, Amount};
 
 use crate::settings::Settings;
 
@@ -54,4 +54,11 @@ pub fn run_command(command: &str, target: Target, settings: &Settings) -> String
 
 pub fn parse_amount(s: &str) -> Result<Amount, &'static str> {
     Amount::from_str_in(s, bitcoin::amount::Denomination::Bitcoin).map_err(|_| "invalid amount")
+}
+
+pub fn string_to_address(addr_str: &str) -> Result<Address, &'static str> {
+    // Attempt to parse the address string into a Bitcoin Address
+    let address = Address::from_str(addr_str).unwrap().assume_checked();
+
+    Ok(address)
 }

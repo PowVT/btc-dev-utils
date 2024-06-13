@@ -2,11 +2,13 @@ use std::collections::HashMap;
 use std::{fs, thread, time::Duration, path::PathBuf, path::Path};
 
 use bitcoin::consensus::serialize;
-use bitcoin::{Amount, Transaction};
+use bitcoin::{Address, Amount, Transaction};
 use bitcoincore_rpc::json::CreateRawTransactionInput;
+use bitcoincore_rpc::RawTx;
 use clap::Parser;
 use log::{error, info};
 use serde_json::Value;
+use utils::string_to_address;
 
 use crate::settings::Settings;
 use crate::utils::{Target, run_command, parse_amount};
@@ -33,11 +35,11 @@ struct Cli {
     blocks: u64,
 
     /// Transaction recipient address
-    #[arg(short, long, default_value = "")]
-    recipient: String,
+    #[arg(short, long, value_parser = string_to_address, default_value = "")]
+    recipient: Address,
 
     /// Transaction amount
-    #[arg(short, long, value_parser = parse_amount, default_value = "1.0")]
+    #[arg(short, long, value_parser = parse_amount, default_value = "10.0")]
     amount: Amount,
 
     /// Transaction fee
@@ -53,8 +55,11 @@ enum Action {
     NewWallet,
     NewWalletAddress,
     GetBalance,
-    MineToAddress,
+    MineBlocks,
+    ListUnspent,
     SignTx,
+    SignAndBroadcast,
+    SendBtc,
     InscribeOrd
 }
 
@@ -78,8 +83,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Action::NewWallet => new_wallet(&args.wallet_name, &settings),
         Action::NewWalletAddress => get_new_address(&args.wallet_name, &settings),
         Action::GetBalance => get_balance(&args.wallet_name, &settings),
-        Action::MineToAddress => mine_to_address(&args.wallet_name, args.blocks, &settings),
-        Action::SignTx => sign_tx(&args.wallet_name, args.recipient,  args.amount, args.fee_amount, &settings),
+        Action::MineBlocks => mine_blocks(&args.wallet_name, args.blocks, &settings),
+        Action::ListUnspent => list_unspent(&args.wallet_name, &settings),
+        Action::SignTx => sign_tx_wrapper(&args.wallet_name, &args.recipient,  args.amount, args.fee_amount, &settings),
+        Action::SignAndBroadcast => sign_and_broadcast_tx(&args.wallet_name, &args.recipient, args.amount, args.fee_amount, &settings),
+        Action::SendBtc => send_btc(&args.wallet_name, &args.recipient, args.amount, &settings),
         Action::InscribeOrd => regtest_inscribe_ord(&settings),
     }
 }
@@ -101,27 +109,32 @@ fn get_new_address(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn
 }
 
 fn get_balance(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let miner_wallet = Wallet::new(wallet_name, settings);
+    let wallet = Wallet::new(wallet_name, settings);
 
-    let balance = miner_wallet.get_balance();
+    let balance = wallet.get_balance();
     println!("{}",format!("{:?}", balance));
 
     Ok(())
 }
 
-fn mine_to_address(wallet_name: &str, blocks: u64, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+fn mine_blocks(wallet_name: &str, blocks: u64, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let miner_wallet = Wallet::new(wallet_name, settings);
 
-    let address = miner_wallet.get_new_address()?;
-
-    miner_wallet.mine_to_address(&address, Some(blocks))?;
-
-    println!("Mined {} blocks to address: {}", blocks, address);
+    miner_wallet.mine_blocks(Some(blocks))?;
 
     Ok(())
 }
 
-fn sign_tx(wallet_name: &str, recipient: String, amount: Amount, fee_amount: Amount, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+fn list_unspent(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let wallet = Wallet::new(wallet_name, settings);
+
+    let unspent_txs = wallet.list_all_unspent(None)?;
+    println!("{}",format!("{:?}", unspent_txs));
+
+    Ok(())
+}
+
+fn sign_tx(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: Amount, settings: &Settings) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let wallet = Wallet::new(wallet_name, settings);
     let balance = wallet.get_balance()?;
 
@@ -131,7 +144,7 @@ fn sign_tx(wallet_name: &str, recipient: String, amount: Amount, fee_amount: Amo
     }
 
     println!("Creating raw transaction...");
-    let unspent_txs = wallet.list_unspent()?;
+    let unspent_txs = wallet.list_all_unspent(None)?; // TODO: add filter to only include txs with amount > 0
     if unspent_txs.is_empty() {
         panic!("No unspent transactions");
     }
@@ -154,25 +167,44 @@ fn sign_tx(wallet_name: &str, recipient: String, amount: Amount, fee_amount: Amo
     });
 
     let mut outputs: HashMap<String, Amount> = HashMap::new();
-    outputs.insert(recipient.clone(), amount);
+    outputs.insert(recipient.to_string(), amount);
 
     // Create raw transaction
-    let raw_tx: Transaction = wallet.create_raw_transaction(&utxos, &outputs, None, None)?;
-
-    // Serialize the transaction
-    let raw_tx_hex = serialize(&raw_tx);
-    let raw_tx_hex_str = hex::encode(&raw_tx_hex);
-
-    println!("Raw transaction (hex): {:?}", raw_tx_hex_str);
+    let tx: Transaction = wallet.create_raw_transaction(&utxos, &outputs, None, None)?;
+    let raw_tx = serialize(&tx).raw_hex();
+    println!("Raw transaction (hex): {:?}", raw_tx);
 
     println!("Signing raw transaction...");
-    let signed_tx_str = run_command(&format!("-rpcwallet='{}' signrawtransactionwithwallet {}", wallet_name, raw_tx_hex_str), Target::Bitcoin, settings);
-    let signed_tx: Value = serde_json::from_str(&signed_tx_str)?;
-    let signed_raw_tx = &signed_tx["hex"];
-    if !signed_tx["complete"].as_bool().unwrap_or(false) {
-        return Err("Failed to sign the transaction".into());
+    let signed_tx = wallet.sign_tx(&tx)?;
+    let raw_tx = serialize(&signed_tx).raw_hex();
+    println!("Signed raw transaction: {}", raw_tx);
+
+    Ok(serialize(&signed_tx))
+}
+
+fn sign_tx_wrapper(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: Amount, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let signed_tx = sign_tx(wallet_name, recipient, amount, fee_amount, settings);
+    if signed_tx.is_err(){
+        return Err(signed_tx.unwrap_err());
     }
-    println!("Signed raw transaction: {}", signed_raw_tx);
+
+    Ok(())
+}
+
+fn sign_and_broadcast_tx(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: Amount, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let wallet = Wallet::new(wallet_name, settings);
+    
+    let signed_tx = sign_tx(wallet_name, recipient, amount, fee_amount, settings)?;
+
+    wallet.broadcast_tx(&signed_tx, None)?;
+
+    Ok(())
+}
+
+fn send_btc(wallet_name: &str, recipient: &Address, amount: Amount, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let wallet = Wallet::new(wallet_name, settings);
+
+    wallet.send(recipient, amount)?;
 
     Ok(())
 }
