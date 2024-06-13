@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{anyhow, Result};
 use bitcoin::{Address, Amount, Network, OutPoint, Transaction, Txid};
 use bitcoincore_rpc::jsonrpc::serde_json::{json, Value};
@@ -154,6 +156,24 @@ impl Wallet {
         signed
             .transaction()
             .map_err(|e| anyhow!("signing failed: {}", e))
+    }
+
+    pub(crate) fn create_raw_transaction(
+        &self,
+        utxos: &[bitcoincore_rpc::json::CreateRawTransactionInput],
+        outs: &HashMap<String, Amount>,
+        locktime: Option<i64>,
+        replaceable: Option<bool>,
+    ) -> Result<Transaction> {
+        let tx = self
+            .client
+            .create_raw_transaction(utxos, outs, locktime, replaceable)?;
+        Ok(tx)
+    }
+
+    pub(crate) fn list_unspent(&self) -> Result<Vec<bitcoincore_rpc::json::ListUnspentResultEntry>> {
+        let unspent = self.client.list_unspent(Some(1), Some(9999999), None, None, None)?;
+        Ok(unspent)
     }
 }
 

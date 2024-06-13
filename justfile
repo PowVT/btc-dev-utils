@@ -2,13 +2,9 @@
 # Demo Commands #
 #################
 
-# create a signed BTC transaction
-sign-tx wallet_name="default_wallet":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} sign-tx
-
-# create and ordinals inscription
-inscribe-ord:
-    RUST_LOG=info ./target/release/btc-dev-utils inscribe-ord
+# get new wallet
+new-wallet wallet_name="default_wallet":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} new-wallet
 
 # get new wallet address
 get-new-address wallet_name="default_wallet":
@@ -21,6 +17,14 @@ get-balance wallet_name="default_wallet":
 # mine blocks to a particular address
 mine-to-address wallet_name="default_wallet" blocks="20":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -b {{ blocks }} mine-to-address
+
+# create a signed BTC transaction
+sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="10.0" fee_amount="0.00015":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -a {{ amount }} -f {{ fee_amount }} sign-tx
+
+# create and ordinals inscription
+inscribe-ord:
+    RUST_LOG=info ./target/release/btc-dev-utils inscribe-ord
 
 
 ###################################

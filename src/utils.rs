@@ -1,5 +1,7 @@
 use std::process::{Command, exit};
 
+use bitcoin::Amount;
+
 use crate::settings::Settings;
 
 pub enum Target {
@@ -48,4 +50,8 @@ pub fn run_command(command: &str, target: Target, settings: &Settings) -> String
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     return stdout;
+}
+
+pub fn parse_amount(s: &str) -> Result<Amount, &'static str> {
+    Amount::from_str_in(s, bitcoin::amount::Denomination::Bitcoin).map_err(|_| "invalid amount")
 }
