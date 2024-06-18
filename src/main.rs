@@ -48,7 +48,7 @@ struct Cli {
     fee_amount: Amount,
 
     /// Transaction hash
-    #[arg(short, long)]
+    #[arg(short, long, default_value = "c36d0c020577c2703dc0e202d8f1ac2626d29d81c449f81079b60c6b07263166")]
     txid: String,
 
     #[command(subcommand)]
