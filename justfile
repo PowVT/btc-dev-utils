@@ -2,6 +2,10 @@
 # Demo Commands #
 #################
 
+# list all commands
+help:
+    RUST_LOG=info ./target/release/btc-dev-utils -h
+
 # get new wallet
 new-wallet wallet_name="default_wallet":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} new-wallet
@@ -21,6 +25,10 @@ mine-blocks wallet_name="default_wallet" blocks="20":
 # list unspent transactions
 list-unspent wallet_name="default_wallet":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} list-unspent
+
+# get transaction
+get-tx wallet_name="default_wallet" txid="txid":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -t {{ txid }} get-tx
 
 # create a signed BTC transaction
 sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="10.0" fee_amount="0.00015":

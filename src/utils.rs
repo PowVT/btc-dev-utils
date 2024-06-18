@@ -58,7 +58,8 @@ pub fn parse_amount(s: &str) -> Result<Amount, &'static str> {
 
 pub fn string_to_address(addr_str: &str) -> Result<Address, &'static str> {
     // Attempt to parse the address string into a Bitcoin Address
-    let address = Address::from_str(addr_str).unwrap().assume_checked();
-
-    Ok(address)
+    match Address::from_str(addr_str) {
+        Ok(address) => Ok(address.assume_checked()),
+        Err(_) => Err("Invalid address string"),
+    }
 }

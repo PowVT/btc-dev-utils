@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::{fs, thread, time::Duration, path::PathBuf, path::Path};
 
 use bitcoin::consensus::serialize;
@@ -35,7 +36,7 @@ struct Cli {
     blocks: u64,
 
     /// Transaction recipient address
-    #[arg(short, long, value_parser = string_to_address, default_value = "")]
+    #[arg(short, long, value_parser = string_to_address, default_value = "1F1tAaz5x1HUXrCNLbtMDqcw6o5GNn4xqX")] // dummy address, do not use
     recipient: Address,
 
     /// Transaction amount
@@ -45,6 +46,10 @@ struct Cli {
     /// Transaction fee
     #[arg(short, long, value_parser = parse_amount, default_value = "0.00015")]
     fee_amount: Amount,
+
+    /// Transaction hash
+    #[arg(short, long)]
+    txid: String,
 
     #[command(subcommand)]
     action: Action,
@@ -57,6 +62,7 @@ enum Action {
     GetBalance,
     MineBlocks,
     ListUnspent,
+    GetTx,
     SignTx,
     SignAndBroadcast,
     SendBtc,
@@ -85,6 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Action::GetBalance => get_balance(&args.wallet_name, &settings),
         Action::MineBlocks => mine_blocks(&args.wallet_name, args.blocks, &settings),
         Action::ListUnspent => list_unspent(&args.wallet_name, &settings),
+        Action::GetTx => get_transaction(&args.wallet_name, &args.txid, &settings),
         Action::SignTx => sign_tx_wrapper(&args.wallet_name, &args.recipient,  args.amount, args.fee_amount, &settings),
         Action::SignAndBroadcast => sign_and_broadcast_tx(&args.wallet_name, &args.recipient, args.amount, args.fee_amount, &settings),
         Action::SendBtc => send_btc(&args.wallet_name, &args.recipient, args.amount, &settings),
@@ -130,6 +137,19 @@ fn list_unspent(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn st
 
     let unspent_txs = wallet.list_all_unspent(None)?;
     println!("{}",format!("{:?}", unspent_txs));
+
+    Ok(())
+}
+
+fn get_transaction(wallet_name: &str, txid: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let wallet = Wallet::new(wallet_name, settings);
+
+    // convert txid to bitcoin::Txid
+    let txid_converted = bitcoin::Txid::from_str(txid)?;
+
+    let tx = wallet.get_tx(&txid_converted)?;
+
+    println!("{}",format!("{:?}", tx));
 
     Ok(())
 }

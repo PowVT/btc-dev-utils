@@ -176,6 +176,11 @@ impl Wallet {
         )?;
         Ok(unspent)
     }
+
+    pub(crate) fn get_tx(&self, txid: &Txid) -> Result<Transaction> {
+        let tx = self.client.get_raw_transaction(txid, None)?;
+        Ok(tx)
+    }
 }
 
 #[derive(Deserialize)]
