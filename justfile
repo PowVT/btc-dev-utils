@@ -12,7 +12,7 @@ new-wallet wallet_name="default_wallet":
 
 # get new wallet address
 get-new-address wallet_name="default_wallet":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} new-wallet-address
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} get-new-address
 
 # get wallet balance
 get-balance wallet_name="default_wallet":

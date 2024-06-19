@@ -58,7 +58,7 @@ struct Cli {
 #[derive(Parser)]
 enum Action {
     NewWallet,
-    NewWalletAddress,
+    GetNewAddress,
     GetBalance,
     MineBlocks,
     ListUnspent,
@@ -87,7 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match args.action {
         Action::NewWallet => new_wallet(&args.wallet_name, &settings),
-        Action::NewWalletAddress => get_new_address(&args.wallet_name, &settings),
+        Action::GetNewAddress => get_new_address(&args.wallet_name, &settings),
         Action::GetBalance => get_balance(&args.wallet_name, &settings),
         Action::MineBlocks => mine_blocks(&args.wallet_name, args.blocks, &settings),
         Action::ListUnspent => list_unspent(&args.wallet_name, &settings),
