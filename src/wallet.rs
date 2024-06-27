@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
 use bitcoin::{Address, Amount, Network, OutPoint, Transaction, Txid};
-use bitcoincore_rpc::json::ListUnspentQueryOptions;
+use bitcoincore_rpc::json::{GetRawTransactionResult, ListUnspentQueryOptions};
 use bitcoincore_rpc::jsonrpc::serde_json::{json, Value};
 use bitcoincore_rpc::{Auth, Client, RawTx, RpcApi};
 use log::{debug, info};
@@ -177,8 +177,8 @@ impl Wallet {
         Ok(unspent)
     }
 
-    pub(crate) fn get_tx(&self, txid: &Txid) -> Result<Transaction> {
-        let tx = self.client.get_raw_transaction(txid, None)?;
+    pub(crate) fn get_tx(&self, txid: &Txid) -> Result<GetRawTransactionResult> {
+        let tx = self.client.get_raw_transaction_info(txid, None)?;
         Ok(tx)
     }
 }

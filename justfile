@@ -31,11 +31,11 @@ get-tx wallet_name="default_wallet" txid="txid":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -t {{ txid }} get-tx
 
 # create a signed BTC transaction
-sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="10.0" fee_amount="0.00015":
+sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.9" fee_amount="0.1":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -a {{ amount }} -f {{ fee_amount }} sign-tx
 
 # create and broadcast a signed BTC transaction
-sign-and-broadcast-tx wallet_name="default_wallet" recipient="recpient_address" amount="10.0" fee_amount="0.00015":
+sign-and-broadcast-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.9" fee_amount="0.1":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -a {{ amount }} -f {{ fee_amount }} sign-and-broadcast-tx
 
 # send BTC to recipient address

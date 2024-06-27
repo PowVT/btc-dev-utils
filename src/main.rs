@@ -28,11 +28,11 @@ struct Cli {
     settings_file: PathBuf,
 
     /// Name of the wallet
-    #[arg(short, long, default_value = "miner")]
+    #[arg(short, long, default_value = "default_wallet")]
     wallet_name: String,
 
     /// Number of blocks to mine
-    #[arg(short, long, default_value = "10")]
+    #[arg(short, long, default_value = "1")]
     blocks: u64,
 
     /// Transaction recipient address
@@ -40,15 +40,15 @@ struct Cli {
     recipient: Address,
 
     /// Transaction amount
-    #[arg(short, long, value_parser = parse_amount, default_value = "10.0")]
+    #[arg(short, long, value_parser = parse_amount, default_value = "49.9")]
     amount: Amount,
 
     /// Transaction fee
-    #[arg(short, long, value_parser = parse_amount, default_value = "0.00015")]
+    #[arg(short, long, value_parser = parse_amount, default_value = "0.1")]
     fee_amount: Amount,
 
     /// Transaction hash
-    #[arg(short, long, default_value = "c36d0c020577c2703dc0e202d8f1ac2626d29d81c449f81079b60c6b07263166")]
+    #[arg(short, long, default_value = "c36d0c020577c2703dc0e202d8f1ac2626d29d81c449f81079b60c6b07263166")] // dummy tx, do not use
     txid: String,
 
     #[command(subcommand)]
@@ -64,7 +64,7 @@ enum Action {
     ListUnspent,
     GetTx,
     SignTx,
-    SignAndBroadcast,
+    SignAndBroadcastTx,
     SendBtc,
     InscribeOrd
 }
@@ -91,9 +91,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Action::GetBalance => get_balance(&args.wallet_name, &settings),
         Action::MineBlocks => mine_blocks(&args.wallet_name, args.blocks, &settings),
         Action::ListUnspent => list_unspent(&args.wallet_name, &settings),
-        Action::GetTx => get_transaction(&args.wallet_name, &args.txid, &settings),
+        Action::GetTx => get_tx(&args.wallet_name, &args.txid, &settings),
         Action::SignTx => sign_tx_wrapper(&args.wallet_name, &args.recipient,  args.amount, args.fee_amount, &settings),
-        Action::SignAndBroadcast => sign_and_broadcast_tx(&args.wallet_name, &args.recipient, args.amount, args.fee_amount, &settings),
+        Action::SignAndBroadcastTx => sign_and_broadcast_tx(&args.wallet_name, &args.recipient, args.amount, args.fee_amount, &settings),
         Action::SendBtc => send_btc(&args.wallet_name, &args.recipient, args.amount, &settings),
         Action::InscribeOrd => regtest_inscribe_ord(&settings),
     }
@@ -136,20 +136,20 @@ fn list_unspent(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn st
     let wallet = Wallet::new(wallet_name, settings);
 
     let unspent_txs = wallet.list_all_unspent(None)?;
-    println!("{}",format!("{:?}", unspent_txs));
+    let pretty_unspent_txs = serde_json::to_string_pretty(&unspent_txs)?;
+    println!("{}", pretty_unspent_txs);
 
     Ok(())
 }
 
-fn get_transaction(wallet_name: &str, txid: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+fn get_tx(wallet_name: &str, txid: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let wallet = Wallet::new(wallet_name, settings);
 
-    // convert txid to bitcoin::Txid
     let txid_converted = bitcoin::Txid::from_str(txid)?;
 
     let tx = wallet.get_tx(&txid_converted)?;
-
-    println!("{}",format!("{:?}", tx));
+    let pretty_tx = serde_json::to_string_pretty(&tx)?;
+    println!("{}", pretty_tx);
 
     Ok(())
 }
