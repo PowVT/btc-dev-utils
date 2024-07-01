@@ -7,12 +7,28 @@ help:
     RUST_LOG=info ./target/release/btc-dev-utils -h
 
 # get new wallet
-new-wallet wallet_name="default_wallet":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} new-wallet
+new-wallet wallet_name="default_wallet" address_type="bech32m":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -z {{ address_type }} new-wallet
+
+# get wallet info
+get-wallet-info wallet_name="default_wallet":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} get-wallet-info
+
+# list descriptors
+list-descriptors wallet_name="default_wallet":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} list-descriptors
+
+# create a new multisig wallet
+new-multisig required_signatures="2" wallet_names="default_wallet1,default_wallet2,default_wallet3" multisig_name="default_multisig_wallet":
+    RUST_LOG=info ./target/release/btc-dev-utils -n {{ required_signatures }} -v {{ wallet_names }} -m {{ multisig_name }} new-multisig
 
 # get new wallet address
 get-new-address wallet_name="default_wallet":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} get-new-address
+
+# get address info
+get-address-info wallet_name="default_wallet" address="address":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -a {{ address }} get-address-info
 
 # get wallet balance
 get-balance wallet_name="default_wallet":
@@ -32,15 +48,15 @@ get-tx wallet_name="default_wallet" txid="txid":
 
 # create a signed BTC transaction
 sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.9" fee_amount="0.1":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -a {{ amount }} -f {{ fee_amount }} sign-tx
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} sign-tx
 
 # create and broadcast a signed BTC transaction
 sign-and-broadcast-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.9" fee_amount="0.1":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -a {{ amount }} -f {{ fee_amount }} sign-and-broadcast-tx
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} sign-and-broadcast-tx
 
 # send BTC to recipient address
 send-btc wallet_name="default_wallet" recipient="recpient_address" amount="10.0":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -a {{ amount }} send-btc
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} send-btc
 
 # create and ordinals inscription
 inscribe-ord:
@@ -61,6 +77,7 @@ ord := "./ord/target/release/ord --regtest --bitcoin-rpc-username=user --bitcoin
 # start Bitcoind server
 start-bitcoind *ARGS:
     mkdir -p {{ bitcoin_datadir }}
+    # {{ bitcoind }} -timeout=15000 -server=1 -txindex=1 -fallbackfee=1.0 -maxtxfee=1.1 -deprecatedrpc=warnings -deprecatedrpc=create_bdb -datadir={{bitcoin_datadir}} {{ ARGS }}
     {{ bitcoind }} -timeout=15000 -server=1 -txindex=1 -fallbackfee=1.0 -maxtxfee=1.1 -deprecatedrpc=warnings -datadir={{bitcoin_datadir}} {{ ARGS }}
 
 # stop Bitcoind server

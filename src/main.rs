@@ -4,12 +4,12 @@ use std::{fs, thread, time::Duration, path::PathBuf, path::Path};
 
 use bitcoin::consensus::serialize;
 use bitcoin::{Address, Amount, Transaction};
-use bitcoincore_rpc::json::CreateRawTransactionInput;
-use bitcoincore_rpc::RawTx;
+use bitcoincore_rpc::json::{CreateRawTransactionInput, GetDescriptorInfoResult};
+use bitcoincore_rpc::{RawTx, RpcApi};
 use clap::Parser;
 use log::{error, info};
-use serde_json::Value;
-use utils::string_to_address;
+use serde_json::{json, Value};
+use utils::{extract_int_ext_xpubs, parse_address_type, string_to_address};
 
 use crate::settings::Settings;
 use crate::utils::{Target, run_command, parse_amount};
@@ -31,6 +31,22 @@ struct Cli {
     #[arg(short, long, default_value = "default_wallet")]
     wallet_name: String,
 
+    /// Name of the multisig wallet
+    #[arg(short='m', long, default_value = "multisig_wallet")]
+    multisig_name: String,
+
+    /// list of wallet names
+    #[arg(short='v', long, value_delimiter = ',', default_value = "default_wallet1,default_wallet2,default_wallet3")]
+    wallet_names: Vec<String>,
+
+    /// required number of signatures
+    #[arg(short='n', long, default_value = "2")]
+    required_signatures: u32,
+
+    /// Address type
+    #[arg(short='z', long, value_parser = parse_address_type, default_value = "bech32")]
+    address_type: bitcoincore_rpc::json::AddressType,
+
     /// Number of blocks to mine
     #[arg(short, long, default_value = "1")]
     blocks: u64,
@@ -39,8 +55,12 @@ struct Cli {
     #[arg(short, long, value_parser = string_to_address, default_value = "1F1tAaz5x1HUXrCNLbtMDqcw6o5GNn4xqX")] // dummy address, do not use
     recipient: Address,
 
+    /// Wallet address
+    #[arg(short, long, value_parser = string_to_address, default_value = "1F1tAaz5x1HUXrCNLbtMDqcw6o5GNn4xqX")] // dummy address, do not use
+    address: Address,
+
     /// Transaction amount
-    #[arg(short, long, value_parser = parse_amount, default_value = "49.9")]
+    #[arg(short='x', long, value_parser = parse_amount, default_value = "49.9")]
     amount: Amount,
 
     /// Transaction fee
@@ -58,7 +78,11 @@ struct Cli {
 #[derive(Parser)]
 enum Action {
     NewWallet,
+    GetWalletInfo,
+    ListDescriptors,
+    NewMultisig,
     GetNewAddress,
+    GetAddressInfo,
     GetBalance,
     MineBlocks,
     ListUnspent,
@@ -87,7 +111,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match args.action {
         Action::NewWallet => new_wallet(&args.wallet_name, &settings),
-        Action::GetNewAddress => get_new_address(&args.wallet_name, &settings),
+        Action::GetWalletInfo => get_wallet_info(&args.wallet_name, &settings),
+        Action::ListDescriptors => list_descriptors_wrapper(&args.wallet_name, &settings),
+        Action::NewMultisig=> new_multisig_wallet(args.required_signatures, &args.wallet_names, &args.multisig_name, &settings),
+        Action::GetNewAddress => get_new_address(&args.wallet_name, &args.address_type, &settings),
+        Action::GetAddressInfo => get_address_info(&args.wallet_name, &args.address, &settings),
         Action::GetBalance => get_balance(&args.wallet_name, &settings),
         Action::MineBlocks => mine_blocks(&args.wallet_name, args.blocks, &settings),
         Action::ListUnspent => list_unspent(&args.wallet_name, &settings),
@@ -105,12 +133,124 @@ fn new_wallet(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std:
     Ok(())
 }
 
-fn get_new_address(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+fn get_wallet_info(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let wallet = Wallet::new(wallet_name, settings);
 
-    let address = wallet.get_new_address();
+    let wallet_info = wallet.get_wallet_info()?;
+    let wallet_info_pretty = serde_json::to_string_pretty(&wallet_info)?;
+    println!("{}", wallet_info_pretty);
+
+    Ok(())
+}
+
+fn list_descriptors(wallet_name: &str, settings: &Settings) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    let client = Wallet::create_rpc_client(settings, Some(wallet_name));
+
+    let descriptors: serde_json::Value = client.call("listdescriptors", &[])?;
+
+    Ok(descriptors)
+}
+
+fn list_descriptors_wrapper(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let descriptors = list_descriptors(wallet_name, settings)?;
+    let descriptors_pretty = serde_json::to_string_pretty(&descriptors)?;
+    println!("{}", descriptors_pretty);
+
+    Ok(())
+}
+
+fn get_new_address(wallet_name: &str, address_type: &bitcoincore_rpc::json::AddressType, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let wallet = Wallet::new(wallet_name, settings);
+
+    let address = wallet.new_wallet_address(address_type)?;
 
     println!("{}",format!("{:?}", address));
+
+    Ok(())
+}
+
+fn get_address_info(wallet_name: &str, address: &Address, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let client = Wallet::create_rpc_client(settings, Some(wallet_name));
+
+    let address_info = client.get_address_info(address)?;
+    let address_info_pretty = serde_json::to_string_pretty(&address_info)?;
+    println!("{}", address_info_pretty);
+
+    Ok(())
+}
+
+fn new_multisig_wallet(nrequired: u32, wallet_names: &Vec<String>, multisig_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    // if the length of wallet_names is gt or equal to nrequired, error
+    if wallet_names.len() < nrequired as usize {
+        return Err("Error: More required signers than wallets".into());
+    }
+
+    let mut xpubs: HashMap<String, String> = HashMap::new();
+
+    // Create the descriptor wallets
+    for wallet_name in wallet_names {
+        let _ = new_wallet(wallet_name, settings);
+    }
+
+    // Extract the xpub of each wallet
+    for (i, wallet_name) in wallet_names.iter().enumerate() {
+        let descriptors: serde_json::Value = list_descriptors(wallet_name, settings)?;
+        let descriptors_array: &Vec<serde_json::Value> = descriptors["descriptors"].as_array().unwrap();
+
+        // Find the correct descriptors for external and internal xpubs
+        xpubs = extract_int_ext_xpubs(xpubs, descriptors_array.clone(), i)?;
+    }
+
+    // Define the multisig descriptors
+    let num_signers = nrequired.to_string();
+    let external_desc = format!(
+        "wsh(sortedmulti({}, {}, {}, {}))",
+        num_signers, xpubs["external_xpub_1"], xpubs["external_xpub_2"], xpubs["external_xpub_3"]
+    );
+    let internal_desc = format!(
+        "wsh(sortedmulti({}, {}, {}, {}))",
+        num_signers, xpubs["internal_xpub_1"], xpubs["internal_xpub_2"], xpubs["internal_xpub_3"]
+    );
+
+    // Create RPC client without wallet name for general operations
+    let client = Wallet::create_rpc_client(settings, None);
+
+    // Get descriptor information
+    let external_desc_info: GetDescriptorInfoResult = client.get_descriptor_info(&external_desc)?;
+    let internal_desc_info: GetDescriptorInfoResult = client.get_descriptor_info(&internal_desc)?;
+
+    // Extract the descriptors
+    let external_descriptor: String = external_desc_info.descriptor;
+    let internal_descriptor: String = internal_desc_info.descriptor;
+
+    let multisig_ext_desc = json!({
+        "desc": external_descriptor,
+        "active": true,
+        "internal": false,
+        "timestamp": json!("now")
+    });
+
+    let multisig_int_desc = json!({
+        "desc": internal_descriptor,
+        "active": true,
+        "internal": true,
+        "timestamp": json!("now")
+    });
+
+    let multisig_desc = json!([multisig_ext_desc, multisig_int_desc]);  // Create an array with the JSON objects
+    println!("Multisig descriptor: {}", serde_json::to_string_pretty(&multisig_desc)?);
+
+    // Create the multisig wallet
+    let _ = client.create_wallet(multisig_name, Some(true), Some(true), None, None);
+
+    // import the descriptors
+    let multisig_desc_vec: Vec<serde_json::Value> = serde_json::from_value(multisig_desc)?;
+    let client2 = Wallet::create_rpc_client(settings, Some(multisig_name));
+    client2.call::<serde_json::Value>("importdescriptors", &[json!(multisig_desc_vec)])?;
+
+    // Get wallet info
+    let wallet_info = get_wallet_info(multisig_name, settings)?;
+    println!("{}", serde_json::to_string_pretty(&wallet_info)?);
 
     Ok(())
 }
@@ -127,7 +267,9 @@ fn get_balance(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std
 fn mine_blocks(wallet_name: &str, blocks: u64, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let miner_wallet = Wallet::new(wallet_name, settings);
 
-    miner_wallet.mine_blocks(Some(blocks))?;
+    let address = miner_wallet.new_wallet_address(&bitcoincore_rpc::json::AddressType::Bech32)?;
+
+    miner_wallet.mine_blocks(Some(blocks), &address)?;
 
     Ok(())
 }

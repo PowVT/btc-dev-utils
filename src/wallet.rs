@@ -99,16 +99,15 @@ impl Wallet {
         Ok(txid)
     }
 
-    pub(crate) fn get_new_address(&self) -> Result<Address> {
+    pub(crate) fn new_wallet_address(&self, address_type: &bitcoincore_rpc::json::AddressType) -> Result<Address> {
         let address = self
             .client
-            .get_new_address(None, Some(bitcoincore_rpc::json::AddressType::Bech32m))?;
+            .get_new_address(None, Some(*address_type))?;
         Ok(address.require_network(self.network)?)
     }
 
-    pub(crate) fn mine_blocks(&self, blocks: Option<u64>) -> Result<()> {
+    pub(crate) fn mine_blocks(&self, blocks: Option<u64>, address: &Address) -> Result<()> {
         info!("Mining {} blocks", blocks.unwrap_or(1));
-        let address = self.get_new_address()?;
         self.client
             .generate_to_address(blocks.unwrap_or(1), &address)?;
         info!("Mined {} blocks to address {}", blocks.unwrap_or(1), address);
@@ -166,6 +165,11 @@ impl Wallet {
         Ok(tx)
     }
 
+    pub(crate) fn get_wallet_info(&self) -> Result<bitcoincore_rpc::json::GetWalletInfoResult> {
+        let info = self.client.get_wallet_info()?;
+        Ok(info)
+    }
+    
     pub(crate) fn list_all_unspent(&self, query_options: Option<ListUnspentQueryOptions>) -> Result<Vec<bitcoincore_rpc::json::ListUnspentResultEntry>> {
         let unspent = self.client.list_unspent(
             Some(1),
