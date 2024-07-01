@@ -1,6 +1,4 @@
-use std::{collections::HashMap, process::{exit, Command}, str::FromStr};
-
-use bitcoin::{Address, Amount};
+use std::{collections::HashMap, process::{exit, Command}};
 
 use crate::settings::Settings;
 
@@ -52,29 +50,11 @@ pub fn run_command(command: &str, target: Target, settings: &Settings) -> String
     return stdout;
 }
 
-pub fn parse_amount(s: &str) -> Result<Amount, &'static str> {
-    Amount::from_str_in(s, bitcoin::amount::Denomination::Bitcoin).map_err(|_| "invalid amount")
-}
-
-pub fn string_to_address(addr_str: &str) -> Result<Address, &'static str> {
-    // Attempt to parse the address string into a Bitcoin Address
-    match Address::from_str(addr_str) {
-        Ok(address) => Ok(address.assume_checked()),
-        Err(_) => Err("Invalid address string"),
-    }
-}
-
-pub fn parse_address_type(s: &str) -> Result<bitcoincore_rpc::json::AddressType, &'static str> {
-    match s {
-        "legacy" => Ok(bitcoincore_rpc::json::AddressType::Legacy),
-        "p2sh-segwit" => Ok(bitcoincore_rpc::json::AddressType::P2shSegwit),
-        "bech32" => Ok(bitcoincore_rpc::json::AddressType::Bech32),
-        "bech32m" => Ok(bitcoincore_rpc::json::AddressType::Bech32m),
-        _ => Err("Unknown address type"),
-    }
-}
-
-pub fn extract_int_ext_xpubs(mut xpubs: HashMap<String, String>, descriptors_array: Vec<serde_json::Value>, i: usize) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+pub fn extract_int_ext_xpubs(
+    mut xpubs: HashMap<String,String>,
+    descriptors_array: Vec<serde_json::Value>,
+    i: usize
+) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     // Find the correct descriptors for external and internal xpubs
     let external_xpub = descriptors_array
         .iter()

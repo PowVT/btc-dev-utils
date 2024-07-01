@@ -47,12 +47,16 @@ get-tx wallet_name="default_wallet" txid="txid":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -t {{ txid }} get-tx
 
 # create a signed BTC transaction
-sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.9" fee_amount="0.1":
+sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.99" fee_amount="0.01":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} sign-tx
 
 # create and broadcast a signed BTC transaction
-sign-and-broadcast-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.9" fee_amount="0.1":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} sign-and-broadcast-tx
+sign-and-broadcast-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.99" fee_amount="0.01" max_fee_rate="10000":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} -u {{ max_fee_rate }} sign-and-broadcast-tx
+
+# broadcast a signed BTC transaction
+broadcast-tx wallet_name="default_wallet" tx_hex="tx_hex"  max_fee_rate="10000":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -t {{ tx_hex }} -u {{ max_fee_rate }} broadcast-tx
 
 # send BTC to recipient address
 send-btc wallet_name="default_wallet" recipient="recpient_address" amount="10.0":
@@ -77,8 +81,7 @@ ord := "./ord/target/release/ord --regtest --bitcoin-rpc-username=user --bitcoin
 # start Bitcoind server
 start-bitcoind *ARGS:
     mkdir -p {{ bitcoin_datadir }}
-    # {{ bitcoind }} -timeout=15000 -server=1 -txindex=1 -fallbackfee=1.0 -maxtxfee=1.1 -deprecatedrpc=warnings -deprecatedrpc=create_bdb -datadir={{bitcoin_datadir}} {{ ARGS }}
-    {{ bitcoind }} -timeout=15000 -server=1 -txindex=1 -fallbackfee=1.0 -maxtxfee=1.1 -deprecatedrpc=warnings -datadir={{bitcoin_datadir}} {{ ARGS }}
+    {{ bitcoind }} -timeout=15000 -server=1 -txindex=1 -deprecatedrpc=warnings -datadir={{bitcoin_datadir}} {{ ARGS }}
 
 # stop Bitcoind server
 stop-bitcoind:

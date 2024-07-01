@@ -81,10 +81,10 @@ impl Wallet {
     }
 
     /// broadcast a raw bitcoin transaction (needs to already be network serialized)
-    /// optionally specify a max fee rate in sat/vB. This function will automatically convert it to BTC/kB that bitcoin core expects
-    /// returns the txid of the broadcast transaction
-    pub(crate) fn broadcast_tx(&self, tx: &Vec<u8>, max_fee_rate: Option<u64>) -> Result<Txid> {
-        // convert fee rate from sat/vb to btc/kb
+    /// optionally specify a max fee rate in sat/vB. This function will automatically convert it to BTC/kB
+    /// the sendrawtransaction rpc call takes fee rate in BTC/kB
+    /// fee rates greater than 1BTC/kB will be automatically rejected by the rpc call
+    pub(crate) fn broadcast_tx(&self, tx: &Vec<u8>, max_fee_rate: Option<f64>) -> Result<Txid> {
         let max_fee_rate = match max_fee_rate {
             Some(fee_rate) => {
                 let fee_rate = fee_rate as f64 / 100_000_000.0 * 1000.0;
@@ -92,6 +92,7 @@ impl Wallet {
             }
             None => 0.1, // the default fee rate is 0.1 BTC/kB
         };
+        println!("{:?}", max_fee_rate);
         let txid = self.client.call(
             "sendrawtransaction",
             &[json!(tx.raw_hex()), json!(max_fee_rate)],
