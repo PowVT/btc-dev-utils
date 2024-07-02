@@ -23,9 +23,9 @@ pub struct Cli {
     #[arg(short='v', long, value_delimiter = ',', default_value = "default_wallet1,default_wallet2,default_wallet3")]
     pub wallet_names: Vec<String>,
 
-    /// required number of signatures
+    /// required number of signatures for multisig
     #[arg(short='n', long, default_value = "2")]
-    pub required_signatures: u32,
+    pub nrequired: u32,
 
     /// Address type
     #[arg(short='z', long, value_parser = parse_address_type, default_value = "bech32")]
@@ -67,6 +67,10 @@ pub struct Cli {
     #[arg(short='p', long, default_value = "cHNidP8BAH0CAAAAAbleQkslv9ReG8S64ny+JbejMMyMKKNF2SOBOiqVAAAAD9///")] // dummy tx, do not use
     pub psbt_hex: String,
 
+    /// Multiple PSBTs
+    #[arg(short='l', long, value_delimiter = ',', default_value = "cHNidP8BAH0CAAAAAbAip9TqQ,cHNidP8BAH0CAAAAAbAip9TqQ")]
+    pub psbts: Vec<String>,
+
     #[command(subcommand)]
     pub action: Action,
 }
@@ -90,6 +94,11 @@ pub enum Action {
     SendBtc,
     CreatePsbt,
     DecodePsbt,
+    AnalyzePsbt,
+    WalletProcessPsbt,
+    CombinePsbts,
+    FinalizePsbt,
+    FinalizePsbtAndBroadcast,
     InscribeOrd
 }
 

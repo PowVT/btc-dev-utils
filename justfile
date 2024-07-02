@@ -47,8 +47,8 @@ list-unspent wallet_name="default_wallet":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} list-unspent
 
 # get transaction
-get-tx wallet_name="default_wallet" txid="txid":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -t {{ txid }} get-tx
+get-tx txid="txid":
+    RUST_LOG=info ./target/release/btc-dev-utils -t {{ txid }} get-tx
 
 # create a signed BTC transaction
 sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.99" fee_amount="0.01":
@@ -59,8 +59,8 @@ sign-and-broadcast-tx wallet_name="default_wallet" recipient="recpient_address" 
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} -u {{ max_fee_rate }} sign-and-broadcast-tx
 
 # broadcast a signed BTC transaction
-broadcast-tx wallet_name="default_wallet" tx_hex="tx_hex"  max_fee_rate="10000":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -t {{ tx_hex }} -u {{ max_fee_rate }} broadcast-tx
+broadcast-tx tx_hex="tx_hex"  max_fee_rate="10000":
+    RUST_LOG=info ./target/release/btc-dev-utils -t {{ tx_hex }} -u {{ max_fee_rate }} broadcast-tx
 
 # send BTC to recipient address
 send-btc wallet_name="default_wallet" recipient="recpient_address" amount="10.0":
@@ -70,9 +70,29 @@ send-btc wallet_name="default_wallet" recipient="recpient_address" amount="10.0"
 create-psbt wallet_name="default_wallet" recipient="recpient_address" amount="49.99" fee_amount="0.01":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} create-psbt
 
-# decode partially signed BTC transaction
+# decode partially signed BTC transaction (gets information about inputs and outputs)
 decode-psbt psbt="psbt_hex":
     RUST_LOG=info ./target/release/btc-dev-utils -p {{ psbt }} decode-psbt
+
+# analyze partially signed BTC transaction (provides current state of psbt)
+analyze-psbt psbt="psbt_hex":
+    RUST_LOG=info ./target/release/btc-dev-utils -p {{ psbt }} analyze-psbt
+
+# Sign partially signed BTC transaction
+wallet-process-psbt wallet_name="default_wallet" psbt="psbt_hex":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -p {{ psbt }} wallet-process-psbt
+
+# Combine partially signed BTC transactions
+combine-psbts psbts="signed_psbt_1,signed_psbt_2":
+    RUST_LOG=info ./target/release/btc-dev-utils -l {{ psbts }} combine-psbts
+
+# Finalize combined partially signed BTC transactions
+finalize-psbt psbt="combined_psbt_hex":
+    RUST_LOG=info ./target/release/btc-dev-utils -p {{ psbt }} finalize-psbt
+
+# Finalize combined partially signed BTC transactions and broadcast it
+finalize-psbt-and-broadcast psbt="combined_psbt_hex":
+    RUST_LOG=info ./target/release/btc-dev-utils -p {{ psbt }} finalize-psbt-and-broadcast
 
 # create and ordinals inscription
 inscribe-ord:

@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
 use bitcoin::{Address, Amount, Network, OutPoint, Transaction, Txid};
-use bitcoincore_rpc::json::{AddressType, GetBalancesResult, GetRawTransactionResult, GetWalletInfoResult, ListUnspentQueryOptions, ListUnspentResultEntry};
+use bitcoincore_rpc::json::{AddressType, GetBalancesResult, GetWalletInfoResult, ListUnspentQueryOptions, ListUnspentResultEntry, WalletProcessPsbtResult};
 use bitcoincore_rpc::jsonrpc::serde_json::{json, Value};
-use bitcoincore_rpc::{Auth, Client, RawTx, RpcApi};
+use bitcoincore_rpc::{Client, RpcApi};
 use log::{debug, info};
 use serde::Deserialize;
 
 use crate::settings::Settings;
+use crate::modules::client::create_rpc_client;
 
 pub(crate) struct Wallet {
     client: Client,
@@ -19,7 +20,7 @@ impl Wallet {
     pub(crate) fn new(name: &str, settings: &Settings) -> Self {
         let name = name.to_string();
 
-        let client = Self::create_rpc_client(settings, None);
+        let client = create_rpc_client(settings, None);
         if client
             .list_wallet_dir()
             .expect("Could not list wallet dir")
@@ -49,56 +50,56 @@ impl Wallet {
         }
 
         Wallet {
-            client: Self::create_rpc_client(settings, Some(&name)),
+            client: create_rpc_client(settings, Some(&name)),
             network: settings.network,
         }
     }
 
-    pub(crate) fn create_rpc_client(settings: &Settings, wallet_name: Option<&str>) -> Client {
-        let port = match settings.network {
-            Network::Bitcoin => 8332,
-            Network::Testnet => 18332,
-            Network::Regtest => 18443,
-            Network::Signet => 38332,
-            _ => {
-                unreachable!("unsupported network")
-            }
-        };
-        // TODO: allow for other authentication
-        let auth = Auth::UserPass(
-            settings.bitcoin_rpc_username.clone(),
-            settings.bitcoin_rpc_password.clone(),
-        );
+    // pub(crate) fn create_rpc_client(settings: &Settings, wallet_name: Option<&str>) -> Client {
+    //     let port = match settings.network {
+    //         Network::Bitcoin => 8332,
+    //         Network::Testnet => 18332,
+    //         Network::Regtest => 18443,
+    //         Network::Signet => 38332,
+    //         _ => {
+    //             unreachable!("unsupported network")
+    //         }
+    //     };
+    //     // TODO: allow for other authentication
+    //     let auth = Auth::UserPass(
+    //         settings.bitcoin_rpc_username.clone(),
+    //         settings.bitcoin_rpc_password.clone(),
+    //     );
 
-        //let auth = bitcoincore_rpc::Auth::CookieFile("/Users/alex/Library/Application Support/Bitcoin/regtest/.cookie".to_string().parse().unwrap());
+    //     //let auth = bitcoincore_rpc::Auth::CookieFile("/Users/alex/Library/Application Support/Bitcoin/regtest/.cookie".to_string().parse().unwrap());
 
-        let url = match wallet_name {
-            None => format!("http://127.0.0.1:{port}"),
-            Some(name) => format!("http://127.0.0.1:{}/wallet/{name}", port),
-        };
+    //     let url = match wallet_name {
+    //         None => format!("http://127.0.0.1:{port}"),
+    //         Some(name) => format!("http://127.0.0.1:{}/wallet/{name}", port),
+    //     };
 
-        Client::new(&url, auth.clone()).unwrap()
-    }
+    //     Client::new(&url, auth.clone()).unwrap()
+    // }
 
-    /// broadcast a raw bitcoin transaction (needs to already be network serialized)
-    /// optionally specify a max fee rate in sat/vB. This function will automatically convert it to BTC/kB
-    /// the sendrawtransaction rpc call takes fee rate in BTC/kB
-    /// fee rates greater than 1BTC/kB will be automatically rejected by the rpc call
-    pub(crate) fn broadcast_tx(&self, tx: &Vec<u8>, max_fee_rate: Option<f64>) -> Result<Txid> {
-        let max_fee_rate = match max_fee_rate {
-            Some(fee_rate) => {
-                let fee_rate = fee_rate as f64 / 100_000_000.0 * 1000.0;
-                format!("{:.8}", fee_rate).parse::<f64>().unwrap()
-            }
-            None => 0.1, // the default fee rate is 0.1 BTC/kB
-        };
-        println!("{:?}", max_fee_rate);
-        let txid = self.client.call(
-            "sendrawtransaction",
-            &[json!(tx.raw_hex()), json!(max_fee_rate)],
-        )?;
-        Ok(txid)
-    }
+    // /// broadcast a raw bitcoin transaction (needs to already be network serialized)
+    // /// optionally specify a max fee rate in sat/vB. This function will automatically convert it to BTC/kB
+    // /// the sendrawtransaction rpc call takes fee rate in BTC/kB
+    // /// fee rates greater than 1BTC/kB will be automatically rejected by the rpc call
+    // pub(crate) fn broadcast_tx(&self, tx: &str, max_fee_rate: Option<f64>) -> Result<Txid> {
+    //     let max_fee_rate = match max_fee_rate {
+    //         Some(fee_rate) => {
+    //             let fee_rate = fee_rate as f64 / 100_000_000.0 * 1000.0;
+    //             format!("{:.8}", fee_rate).parse::<f64>().unwrap()
+    //         }
+    //         None => 0.1, // the default fee rate is 0.1 BTC/kB
+    //     };
+    //     println!("{:?}", max_fee_rate);
+    //     let txid = self.client.call(
+    //         "sendrawtransaction",
+    //         &[json!(tx), json!(max_fee_rate)],
+    //     )?;
+    //     Ok(txid)
+    // }
 
     pub(crate) fn new_wallet_address(&self, address_type: &AddressType) -> Result<Address> {
         let address = self
@@ -183,8 +184,8 @@ impl Wallet {
         Ok(unspent)
     }
 
-    pub(crate) fn get_tx(&self, txid: &Txid) -> Result<GetRawTransactionResult> {
-        let tx = self.client.get_raw_transaction_info(txid, None)?;
+    pub(crate) fn process_psbt(&self, psbt: &str) -> Result<WalletProcessPsbtResult> {
+        let tx: WalletProcessPsbtResult = self.client.wallet_process_psbt(psbt, None, None, None)?;
         Ok(tx)
     }
 }
