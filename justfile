@@ -30,9 +30,13 @@ get-new-address wallet_name="default_wallet":
 get-address-info wallet_name="default_wallet" address="address":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -a {{ address }} get-address-info
 
+# Rescan the local blockchain for wallet related transactions. Use to import multisig wallet balances
+rescan-blockchain:
+    RUST_LOG=info ./target/release/btc-dev-utils rescan-blockchain
+
 # get wallet balance
-get-balance wallet_name="default_wallet":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} get-balance
+get-balances wallet_name="default_wallet":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} get-balances
 
 # mine blocks to a particular wallet
 mine-blocks wallet_name="default_wallet" blocks="20":
@@ -62,10 +66,17 @@ broadcast-tx wallet_name="default_wallet" tx_hex="tx_hex"  max_fee_rate="10000":
 send-btc wallet_name="default_wallet" recipient="recpient_address" amount="10.0":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} send-btc
 
+# create partially signed BTC transaction
+create-psbt wallet_name="default_wallet" recipient="recpient_address" amount="49.99" fee_amount="0.01":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} create-psbt
+
+# decode partially signed BTC transaction
+decode-psbt psbt="psbt_hex":
+    RUST_LOG=info ./target/release/btc-dev-utils -p {{ psbt }} decode-psbt
+
 # create and ordinals inscription
 inscribe-ord:
     RUST_LOG=info ./target/release/btc-dev-utils inscribe-ord
-
 
 ###################################
 # Build and boostrapping commands #
@@ -81,7 +92,7 @@ ord := "./ord/target/release/ord --regtest --bitcoin-rpc-username=user --bitcoin
 # start Bitcoind server
 start-bitcoind *ARGS:
     mkdir -p {{ bitcoin_datadir }}
-    {{ bitcoind }} -timeout=15000 -server=1 -txindex=1 -deprecatedrpc=warnings -datadir={{bitcoin_datadir}} {{ ARGS }}
+    {{ bitcoind }} -timeout=15000 -server=1 -txindex=1 -fallbackfee=1.0 -maxtxfee=1.1 -deprecatedrpc=warnings -datadir={{bitcoin_datadir}} {{ ARGS }}
 
 # stop Bitcoind server
 stop-bitcoind:

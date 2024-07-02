@@ -5,21 +5,21 @@ use std::str::FromStr;
 use bitcoin::consensus::serialize;
 use bitcoin::hex::FromHex;
 use bitcoin::{Address, Amount, Transaction};
-use bitcoincore_rpc::json::{CreateRawTransactionInput, GetDescriptorInfoResult};
+use bitcoincore_rpc::json::{CreateRawTransactionInput, GetAddressInfoResult, GetDescriptorInfoResult, GetRawTransactionResult, GetWalletInfoResult, ListUnspentResultEntry, WalletCreateFundedPsbtResult};
 use bitcoincore_rpc::{RawTx, RpcApi};
 use log::{error, info};
 use serde_json::{json, Value};
 use clap::Parser;
 
 use crate::settings::Settings;
-use crate::modules::cli::{Cli, Action};
+use crate::utils::cli::{Cli, Action};
+use crate::utils::utils::{Target, run_command};
+use crate::utils::utils::extract_int_ext_xpubs;
 use crate::modules::wallet::Wallet;
-use crate::modules::utils::{Target, run_command};
-use crate::modules::utils::extract_int_ext_xpubs;
 
 mod settings;
 mod modules;
-
+mod utils;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
@@ -44,7 +44,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Action::NewMultisig=> new_multisig_wallet(args.required_signatures, &args.wallet_names, &args.multisig_name, &settings),
         Action::GetNewAddress => get_new_address(&args.wallet_name, &args.address_type, &settings),
         Action::GetAddressInfo => get_address_info(&args.wallet_name, &args.address, &settings),
-        Action::GetBalance => get_balance(&args.wallet_name, &settings),
+        Action::RescanBlockchain => rescan_blockchain(&settings),
+        Action::GetBalances => get_balances(&args.wallet_name, &settings),
         Action::MineBlocks => mine_blocks(&args.wallet_name, args.blocks, &settings),
         Action::ListUnspent => list_unspent(&args.wallet_name, &settings),
         Action::GetTx => get_tx(&args.wallet_name, &args.txid, &settings),
@@ -52,6 +53,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Action::BroadcastTx => broadcast_tx(&args.wallet_name, &args.tx_hex, args.max_fee_rate, &settings),
         Action::SignAndBroadcastTx => sign_and_broadcast_tx(&args.wallet_name, &args.recipient, args.amount, args.fee_amount, args.max_fee_rate, &settings),
         Action::SendBtc => send_btc(&args.wallet_name, &args.recipient, args.amount, &settings),
+        Action::CreatePsbt => create_psbt(&args.wallet_name, &args.recipient, args.amount, args.fee_amount, &settings),
+        Action::DecodePsbt => decode_psbt(&args.psbt_hex, &settings),
         Action::InscribeOrd => regtest_inscribe_ord(&settings),
     }
 }
@@ -65,9 +68,8 @@ fn new_wallet(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std:
 fn get_wallet_info(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let wallet = Wallet::new(wallet_name, settings);
 
-    let wallet_info = wallet.get_wallet_info()?;
-    let wallet_info_pretty = serde_json::to_string_pretty(&wallet_info)?;
-    info!("{}", wallet_info_pretty);
+    let wallet_info: GetWalletInfoResult = wallet.get_wallet_info()?;
+    info!("{:#?}", wallet_info);
 
     Ok(())
 }
@@ -81,9 +83,8 @@ fn list_descriptors(wallet_name: &str, settings: &Settings) -> Result<serde_json
 }
 
 fn list_descriptors_wrapper(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let descriptors = list_descriptors(wallet_name, settings)?;
-    let descriptors_pretty = serde_json::to_string_pretty(&descriptors)?;
-    info!("{}", descriptors_pretty);
+    let descriptors: Value = list_descriptors(wallet_name, settings)?;
+    info!("{:#?}", descriptors);
 
     Ok(())
 }
@@ -101,9 +102,17 @@ fn get_new_address(wallet_name: &str, address_type: &bitcoincore_rpc::json::Addr
 fn get_address_info(wallet_name: &str, address: &Address, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let client = Wallet::create_rpc_client(settings, Some(wallet_name));
 
-    let address_info = client.get_address_info(address)?;
-    let address_info_pretty = serde_json::to_string_pretty(&address_info)?;
-    info!("{}", address_info_pretty);
+    let address_info: GetAddressInfoResult = client.get_address_info(address)?;
+    info!("{:#?}", address_info);
+
+    Ok(())
+}
+
+fn rescan_blockchain(settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+
+    let client = Wallet::create_rpc_client(settings, None);
+
+    let _ = client.rescan_blockchain(Some(0), None);
 
     Ok(())
 }
@@ -167,7 +176,6 @@ fn new_multisig_wallet(nrequired: u32, wallet_names: &Vec<String>, multisig_name
     });
 
     let multisig_desc = json!([multisig_ext_desc, multisig_int_desc]);  // Create an array with the JSON objects
-    info!("Multisig descriptor: {}", serde_json::to_string_pretty(&multisig_desc)?);
 
     // Create the multisig wallet
     let _ = client.create_wallet(multisig_name, Some(true), Some(true), None, None);
@@ -178,17 +186,16 @@ fn new_multisig_wallet(nrequired: u32, wallet_names: &Vec<String>, multisig_name
     client2.call::<serde_json::Value>("importdescriptors", &[json!(multisig_desc_vec)])?;
 
     // Get wallet info
-    let wallet_info = get_wallet_info(multisig_name, settings)?;
-    info!("{}", serde_json::to_string_pretty(&wallet_info)?);
+    get_wallet_info(multisig_name, settings)?;
 
     Ok(())
 }
 
-fn get_balance(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+fn get_balances(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let wallet = Wallet::new(wallet_name, settings);
 
-    let balance = wallet.get_balance();
-    info!("{}",format!("{:?}", balance));
+    let balances = wallet.get_balances()?;
+    info!("{:#?}", balances);
 
     Ok(())
 }
@@ -206,9 +213,8 @@ fn mine_blocks(wallet_name: &str, blocks: u64, settings: &Settings) -> Result<()
 fn list_unspent(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let wallet = Wallet::new(wallet_name, settings);
 
-    let unspent_txs = wallet.list_all_unspent(None)?;
-    let pretty_unspent_txs = serde_json::to_string_pretty(&unspent_txs)?;
-    info!("{}", pretty_unspent_txs);
+    let unspent_txs: Vec<ListUnspentResultEntry> = wallet.list_all_unspent(None)?;
+    info!("{:#?}", unspent_txs);
 
     Ok(())
 }
@@ -218,24 +224,24 @@ fn get_tx(wallet_name: &str, txid: &str, settings: &Settings) -> Result<(), Box<
 
     let txid_converted = bitcoin::Txid::from_str(txid)?;
 
-    let tx = wallet.get_tx(&txid_converted)?;
-    let pretty_tx = serde_json::to_string_pretty(&tx)?;
-    info!("{}", pretty_tx);
+    let tx: GetRawTransactionResult = wallet.get_tx(&txid_converted)?;
+    info!("{:#?}", tx);
 
     Ok(())
 }
 
 fn sign_tx(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: Amount, settings: &Settings) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let wallet = Wallet::new(wallet_name, settings);
-    let balance = wallet.get_balance()?;
+    let balances = wallet.get_balances()?;
 
     // check if balance is sufficient
-    if balance < amount {
-        panic!("Insufficient balance to send tx. Current balance: {}", balance);
+    if balances.mine.trusted.to_sat() < amount.to_sat() {
+        panic!("Insufficient balance to send tx. Current balance: {}", balances.mine.trusted);
     }
 
     info!("Creating raw transaction...");
-    let unspent_txs = wallet.list_all_unspent(None)?; // TODO: add filter to only include txs with amount > 0
+    // TODO: add filter to only include txs with amount > 0
+    let unspent_txs = wallet.list_all_unspent(None)?;
     if unspent_txs.is_empty() {
         panic!("No unspent transactions");
     }
@@ -308,6 +314,61 @@ fn send_btc(wallet_name: &str, recipient: &Address, amount: Amount, settings: &S
     let wallet = Wallet::new(wallet_name, settings);
 
     wallet.send(recipient, amount)?;
+
+    Ok(())
+}
+
+fn create_psbt(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: Amount, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let wallet = Wallet::new(wallet_name, settings);
+
+    // ensure the wallet is a multisig wallet
+    if wallet.get_wallet_info()?.private_keys_enabled {
+        panic!("Wallet is not a multisig wallet");
+    }
+
+    let bal = wallet.get_balances()?;
+    if bal.mine.trusted.to_sat() < amount.to_sat() {
+        panic!("Insufficient balance to send tx. Current balance: {}", bal.mine.trusted);
+    }
+
+    info!("Creating raw transaction...");
+    // TODO: add filter to only include txs with amount > 0
+    let unspent_txs = wallet.list_all_unspent(None)?;
+    // get the first unspent transaction
+    let unspent_txid = unspent_txs[0].txid;
+    let unspent_vout = unspent_txs[0].vout;
+    let unspent_amount = unspent_txs[0].amount;
+    if unspent_txs.is_empty() {
+        panic!("No unspent transactions");
+    }
+    if unspent_amount < amount + fee_amount {
+        panic!("Insufficient unspent amount. Current amount: {}", unspent_amount);
+    }
+    
+    let mut tx_inputs: Vec<bitcoincore_rpc::json::CreateRawTransactionInput> = Vec::new();
+    tx_inputs.push(bitcoincore_rpc::json::CreateRawTransactionInput {
+        txid: unspent_txid,
+        vout: unspent_vout,
+        sequence: None,
+    });
+    let mut tx_outputs: HashMap<String, Amount> = HashMap::new();
+    tx_outputs.insert(recipient.to_string(), amount);
+    let locktime = None;
+    let options =  None;
+    let bip32derivs = None;
+    let client = Wallet::create_rpc_client(settings, Some(wallet_name));
+    let psbt: WalletCreateFundedPsbtResult = client.wallet_create_funded_psbt(&tx_inputs[..], &tx_outputs, locktime, options, bip32derivs)?;
+
+    info!("PSBT: {:#?}", psbt);
+
+    Ok(())
+}
+
+fn decode_psbt(psbt: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let client = Wallet::create_rpc_client(settings, None);
+
+    let psbt: serde_json::Value = client.call("decodepsbt", &[json!(psbt)])?;
+    info!("PSBT: {:#?}", psbt);
 
     Ok(())
 }

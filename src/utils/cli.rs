@@ -63,6 +63,10 @@ pub struct Cli {
     #[arg(short='t', long, default_value = "dcaf015d7d6fdfc8a7f38f1a17991aa9975bd93109db2d3756e1533b519d4fae")] // dummy tx, do not use
     pub tx_hex: String,
 
+    /// PSBT hash
+    #[arg(short='p', long, default_value = "cHNidP8BAH0CAAAAAbleQkslv9ReG8S64ny+JbejMMyMKKNF2SOBOiqVAAAAD9///")] // dummy tx, do not use
+    pub psbt_hex: String,
+
     #[command(subcommand)]
     pub action: Action,
 }
@@ -75,7 +79,8 @@ pub enum Action {
     NewMultisig,
     GetNewAddress,
     GetAddressInfo,
-    GetBalance,
+    RescanBlockchain,
+    GetBalances,
     MineBlocks,
     ListUnspent,
     GetTx,
@@ -83,6 +88,8 @@ pub enum Action {
     BroadcastTx,
     SignAndBroadcastTx,
     SendBtc,
+    CreatePsbt,
+    DecodePsbt,
     InscribeOrd
 }
 

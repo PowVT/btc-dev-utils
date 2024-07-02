@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
 use bitcoin::{Address, Amount, Network, OutPoint, Transaction, Txid};
-use bitcoincore_rpc::json::{GetRawTransactionResult, ListUnspentQueryOptions};
+use bitcoincore_rpc::json::{AddressType, GetBalancesResult, GetRawTransactionResult, GetWalletInfoResult, ListUnspentQueryOptions, ListUnspentResultEntry};
 use bitcoincore_rpc::jsonrpc::serde_json::{json, Value};
 use bitcoincore_rpc::{Auth, Client, RawTx, RpcApi};
 use log::{debug, info};
@@ -100,7 +100,7 @@ impl Wallet {
         Ok(txid)
     }
 
-    pub(crate) fn new_wallet_address(&self, address_type: &bitcoincore_rpc::json::AddressType) -> Result<Address> {
+    pub(crate) fn new_wallet_address(&self, address_type: &AddressType) -> Result<Address> {
         let address = self
             .client
             .get_new_address(None, Some(*address_type))?;
@@ -115,8 +115,9 @@ impl Wallet {
         Ok(())
     }
 
-    pub(crate) fn get_balance(&self) -> Result<Amount> {
-        let balance = self.client.get_balance(None, None)?;
+    /// do not use this method for multisig wallets
+    pub(crate) fn get_balances(&self) -> Result<GetBalancesResult> {
+        let balance = self.client.get_balances()?;
         Ok(balance)
     }
 
@@ -166,12 +167,12 @@ impl Wallet {
         Ok(tx)
     }
 
-    pub(crate) fn get_wallet_info(&self) -> Result<bitcoincore_rpc::json::GetWalletInfoResult> {
+    pub(crate) fn get_wallet_info(&self) -> Result<GetWalletInfoResult> {
         let info = self.client.get_wallet_info()?;
         Ok(info)
     }
     
-    pub(crate) fn list_all_unspent(&self, query_options: Option<ListUnspentQueryOptions>) -> Result<Vec<bitcoincore_rpc::json::ListUnspentResultEntry>> {
+    pub(crate) fn list_all_unspent(&self, query_options: Option<ListUnspentQueryOptions>) -> Result<Vec<ListUnspentResultEntry>> {
         let unspent = self.client.list_unspent(
             Some(1),
             Some(9999999),
