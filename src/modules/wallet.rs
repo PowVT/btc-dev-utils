@@ -55,52 +55,6 @@ impl Wallet {
         }
     }
 
-    // pub(crate) fn create_rpc_client(settings: &Settings, wallet_name: Option<&str>) -> Client {
-    //     let port = match settings.network {
-    //         Network::Bitcoin => 8332,
-    //         Network::Testnet => 18332,
-    //         Network::Regtest => 18443,
-    //         Network::Signet => 38332,
-    //         _ => {
-    //             unreachable!("unsupported network")
-    //         }
-    //     };
-    //     // TODO: allow for other authentication
-    //     let auth = Auth::UserPass(
-    //         settings.bitcoin_rpc_username.clone(),
-    //         settings.bitcoin_rpc_password.clone(),
-    //     );
-
-    //     //let auth = bitcoincore_rpc::Auth::CookieFile("/Users/alex/Library/Application Support/Bitcoin/regtest/.cookie".to_string().parse().unwrap());
-
-    //     let url = match wallet_name {
-    //         None => format!("http://127.0.0.1:{port}"),
-    //         Some(name) => format!("http://127.0.0.1:{}/wallet/{name}", port),
-    //     };
-
-    //     Client::new(&url, auth.clone()).unwrap()
-    // }
-
-    // /// broadcast a raw bitcoin transaction (needs to already be network serialized)
-    // /// optionally specify a max fee rate in sat/vB. This function will automatically convert it to BTC/kB
-    // /// the sendrawtransaction rpc call takes fee rate in BTC/kB
-    // /// fee rates greater than 1BTC/kB will be automatically rejected by the rpc call
-    // pub(crate) fn broadcast_tx(&self, tx: &str, max_fee_rate: Option<f64>) -> Result<Txid> {
-    //     let max_fee_rate = match max_fee_rate {
-    //         Some(fee_rate) => {
-    //             let fee_rate = fee_rate as f64 / 100_000_000.0 * 1000.0;
-    //             format!("{:.8}", fee_rate).parse::<f64>().unwrap()
-    //         }
-    //         None => 0.1, // the default fee rate is 0.1 BTC/kB
-    //     };
-    //     println!("{:?}", max_fee_rate);
-    //     let txid = self.client.call(
-    //         "sendrawtransaction",
-    //         &[json!(tx), json!(max_fee_rate)],
-    //     )?;
-    //     Ok(txid)
-    // }
-
     pub(crate) fn new_wallet_address(&self, address_type: &AddressType) -> Result<Address> {
         let address = self
             .client
@@ -116,7 +70,6 @@ impl Wallet {
         Ok(())
     }
 
-    /// do not use this method for multisig wallets
     pub(crate) fn get_balances(&self) -> Result<GetBalancesResult> {
         let balance = self.client.get_balances()?;
         Ok(balance)

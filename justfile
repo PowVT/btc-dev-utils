@@ -46,9 +46,9 @@ mine-blocks wallet_name="default_wallet" blocks="20":
 list-unspent wallet_name="default_wallet":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} list-unspent
 
-# get transaction
+# get transaction data from transaction ID
 get-tx txid="txid":
-    RUST_LOG=info ./target/release/btc-dev-utils -t {{ txid }} get-tx
+    RUST_LOG=info ./target/release/btc-dev-utils -i {{ txid }} get-tx
 
 # create a signed BTC transaction
 sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.99" fee_amount="0.01":

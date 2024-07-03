@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use bitcoin::consensus::serialize;
 use bitcoin::{Address, Amount, Transaction};
-use bitcoincore_rpc::json::{CreateRawTransactionInput, FinalizePsbtResult, GetAddressInfoResult, GetDescriptorInfoResult, GetRawTransactionResult, GetWalletInfoResult, ListUnspentResultEntry, WalletCreateFundedPsbtResult};
+use bitcoincore_rpc::json::{CreateRawTransactionInput, FinalizePsbtResult, GetAddressInfoResult, GetDescriptorInfoResult, GetWalletInfoResult, ListUnspentResultEntry, WalletCreateFundedPsbtResult};
 use bitcoincore_rpc::{Client, RawTx, RpcApi};
 use log::{error, info};
 use serde_json::{json, Value};
@@ -224,7 +224,7 @@ fn get_tx(txid: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Err
     let client: Client = create_rpc_client(settings, None);
 
     let txid_converted = bitcoin::Txid::from_str(txid)?;
-    let tx: GetRawTransactionResult = client.get_raw_transaction_info(&txid_converted, None)?;
+    let tx = client.get_raw_transaction_info(&txid_converted, None)?;
     info!("{:#?}", tx);
 
     Ok(())
