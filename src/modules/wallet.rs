@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::{anyhow, Result};
 use bitcoin::{Address, Amount, Network, OutPoint, Transaction, Txid};
 use bitcoincore_rpc::json::{AddressType, GetBalancesResult, GetWalletInfoResult, ListUnspentQueryOptions, ListUnspentResultEntry, WalletProcessPsbtResult};
@@ -55,19 +53,11 @@ impl Wallet {
         }
     }
 
-    pub(crate) fn new_wallet_address(&self, address_type: &AddressType) -> Result<Address> {
+    pub(crate) fn new_address(&self, address_type: &AddressType) -> Result<Address> {
         let address = self
             .client
             .get_new_address(None, Some(*address_type))?;
         Ok(address.require_network(self.network)?)
-    }
-
-    pub(crate) fn mine_blocks(&self, blocks: Option<u64>, address: &Address) -> Result<()> {
-        info!("Mining {} blocks", blocks.unwrap_or(1));
-        self.client
-            .generate_to_address(blocks.unwrap_or(1), &address)?;
-        info!("Mined {} blocks to address {}", blocks.unwrap_or(1), address);
-        Ok(())
     }
 
     pub(crate) fn get_balances(&self) -> Result<GetBalancesResult> {
@@ -106,19 +96,6 @@ impl Wallet {
         signed
             .transaction()
             .map_err(|e| anyhow!("signing failed: {}", e))
-    }
-
-    pub(crate) fn create_raw_transaction(
-        &self,
-        utxos: &[bitcoincore_rpc::json::CreateRawTransactionInput],
-        outs: &HashMap<String, Amount>,
-        locktime: Option<i64>,
-        replaceable: Option<bool>,
-    ) -> Result<Transaction> {
-        let tx = self
-            .client
-            .create_raw_transaction(utxos, outs, locktime, replaceable)?;
-        Ok(tx)
     }
 
     pub(crate) fn get_wallet_info(&self) -> Result<GetWalletInfoResult> {

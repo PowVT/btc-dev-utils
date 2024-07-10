@@ -19,7 +19,7 @@ pub(crate) fn create_rpc_client(settings: &Settings, wallet_name: Option<&str>) 
         settings.bitcoin_rpc_password.clone(),
     );
 
-    //let auth = bitcoincore_rpc::Auth::CookieFile("/Users/alex/Library/Application Support/Bitcoin/regtest/.cookie".to_string().parse().unwrap());
+    // let auth = bitcoincore_rpc::Auth::CookieFile("/Users/alex/Library/Application Support/Bitcoin/regtest/.cookie".to_string().parse().unwrap());
 
     let url = match wallet_name {
         None => format!("http://127.0.0.1:{port}"),

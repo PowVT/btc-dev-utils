@@ -45,18 +45,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Action::GetNewAddress => get_new_address(&args.wallet_name, &args.address_type, &settings),
         Action::GetAddressInfo => get_address_info(&args.address, &settings),
         Action::RescanBlockchain => rescan_blockchain(&settings),
-        Action::GetBalances => get_balances(&args.wallet_name, &settings),
-        Action::MineBlocks => mine_blocks(&args.wallet_name, args.blocks, &settings),
+        Action::GetBalance => get_balances(&args.wallet_name, &settings),
+        Action::MineBlocks => mine_blocks_wrapper(&args.wallet_name, args.blocks, &settings),
         Action::ListUnspent => list_unspent(&args.wallet_name, &settings),
         Action::GetTx => get_tx(&args.txid, &settings),
-        Action::SignTx => sign_tx_wrapper(&args.wallet_name, &args.recipient,  args.amount, args.fee_amount, &settings),
+        Action::SignTx => sign_tx_wrapper(&args.wallet_name, &args.recipient, args.amount, args.fee_amount, &settings),
         Action::BroadcastTx => broadcast_tx_wrapper( &args.tx_hex, args.max_fee_rate, &settings),
         Action::SignAndBroadcastTx => sign_and_broadcast_tx(&args.wallet_name, &args.recipient, args.amount, args.fee_amount, args.max_fee_rate, &settings),
         Action::SendBtc => send_btc(&args.wallet_name, &args.recipient, args.amount, &settings),
         Action::CreatePsbt => create_psbt(&args.wallet_name, &args.recipient, args.amount, args.fee_amount, &settings),
         Action::DecodePsbt => decode_psbt(&args.psbt_hex, &settings),
         Action::AnalyzePsbt => analyze_psbt(&args.psbt_hex, &settings),
-        Action::WalletProcessPsbt => wallet_process_psbt(&args.wallet_name, &args.psbt_hex, &settings),
+        Action::WalletProcessPsbt => process_psbt(&args.wallet_name, &args.psbt_hex, &settings),
         Action::CombinePsbts => combine_psbts(&args.psbts, &settings),
         Action::FinalizePsbt => finalize_psbt(&args.psbt_hex, &settings),
         Action::FinalizePsbtAndBroadcast => finalize_psbt_and_broadcast(&args.psbt_hex, &settings),
@@ -96,7 +96,7 @@ fn list_descriptors_wrapper(wallet_name: &str, settings: &Settings) -> Result<()
 fn get_new_address(wallet_name: &str, address_type: &bitcoincore_rpc::json::AddressType, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let wallet: Wallet = Wallet::new(wallet_name, settings);
 
-    let address: Address = wallet.new_wallet_address(address_type)?;
+    let address: Address = wallet.new_address(address_type)?;
     info!("{}",format!("{:?}", address));
 
     Ok(())
@@ -201,12 +201,21 @@ fn get_balances(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn st
     Ok(())
 }
 
-fn mine_blocks(wallet_name: &str, blocks: u64, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+fn mine_blocks(blocks: Option<u64>, address: &Address, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let client: Client = create_rpc_client(settings, None);
+
+    info!("Mining {} blocks", blocks.unwrap_or(1));
+    client.generate_to_address(blocks.unwrap_or(1), address)?;
+    info!("Mined {} blocks to address {}", blocks.unwrap_or(1), address);
+
+    Ok(())
+}
+
+fn mine_blocks_wrapper(wallet_name: &str, blocks: u64, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let miner_wallet = Wallet::new(wallet_name, settings);
+    let address = miner_wallet.new_address(&bitcoincore_rpc::json::AddressType::Bech32)?;
 
-    let address = miner_wallet.new_wallet_address(&bitcoincore_rpc::json::AddressType::Bech32)?;
-
-    miner_wallet.mine_blocks(Some(blocks), &address)?;
+    mine_blocks(Some(blocks), &address, settings)?;
 
     Ok(())
 }
@@ -257,7 +266,7 @@ fn sign_tx(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: A
 
     // array of utxos to spend
     let mut utxos: Vec<CreateRawTransactionInput> = Vec::new();
-    utxos.push(bitcoincore_rpc::json::CreateRawTransactionInput {
+    utxos.push(CreateRawTransactionInput {
         txid: unspent_txid,
         vout: unspent_vout,
         sequence: Some(0),
@@ -267,7 +276,8 @@ fn sign_tx(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: A
     outputs.insert(recipient.to_string(), amount);
 
     // Create raw transaction
-    let tx: Transaction = wallet.create_raw_transaction(&utxos, &outputs, None, None)?;
+    let client: Client = create_rpc_client(settings, Some(wallet_name));
+    let tx: Transaction = client.create_raw_transaction(&utxos[..], &outputs, None, None)?;
     let raw_tx = serialize(&tx).raw_hex();
     info!("Raw transaction (hex): {:?}", raw_tx);
 
@@ -394,7 +404,7 @@ fn analyze_psbt(psbt: &str, settings: &Settings) -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
-fn wallet_process_psbt(wallet_name: &str, psbt: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+fn process_psbt(wallet_name: &str, psbt: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let wallet: Wallet = Wallet::new(wallet_name, settings);
     let signed_psbt = wallet.process_psbt(&psbt)?;
     info!("Signed PSBT: {:#?}", signed_psbt);

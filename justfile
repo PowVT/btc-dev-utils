@@ -35,8 +35,8 @@ rescan-blockchain:
     RUST_LOG=info ./target/release/btc-dev-utils rescan-blockchain
 
 # get wallet balance
-get-balances wallet_name="default_wallet":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} get-balances
+get-balance wallet_name="default_wallet":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} get-balance
 
 # mine blocks to a particular wallet
 mine-blocks wallet_name="default_wallet" blocks="20":

@@ -84,7 +84,7 @@ pub enum Action {
     GetNewAddress,
     GetAddressInfo,
     RescanBlockchain,
-    GetBalances,
+    GetBalance,
     MineBlocks,
     ListUnspent,
     GetTx,
