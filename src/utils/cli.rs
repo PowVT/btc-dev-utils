@@ -6,6 +6,8 @@ use bitcoin::{Amount, Address};
 use bitcoin::amount::Denomination::Bitcoin;
 use clap::Parser;
 
+use super::utils::UTXOStrategy;
+
 #[derive(Parser)]
 pub struct Cli {
     #[arg(short='s', long, default_value = "settings.toml")]
@@ -55,6 +57,10 @@ pub struct Cli {
     #[arg(short='u', long, default_value = "0.1")]
     pub max_fee_rate: f64,
 
+    /// UTXO selection strategy
+    #[arg(short='y', long, value_parser = parse_utxo_strategy, default_value = "fifo")]
+    pub utxo_strat: UTXOStrategy,
+
     /// Transaction ID
     #[arg(short='i', long, default_value = "c36d0c020577c2703dc0e202d8f1ac2626d29d81c449f81079b60c6b07263166")] // dummy tx, do not use
     pub txid: String,
@@ -90,7 +96,6 @@ pub enum Action {
     GetTx,
     SignTx,
     BroadcastTx,
-    SignAndBroadcastTx,
     SendBtc,
     CreatePsbt,
     DecodePsbt,
@@ -102,23 +107,32 @@ pub enum Action {
     InscribeOrd
 }
 
-pub fn parse_amount(s: &str) -> Result<Amount, &'static str> {
+fn parse_amount(s: &str) -> Result<Amount, &'static str> {
     Amount::from_str_in(s, Bitcoin).map_err(|_| "invalid amount")
 }
 
-pub fn string_to_address(addr_str: &str) -> Result<Address, &'static str> {
+fn string_to_address(addr_str: &str) -> Result<Address, &'static str> {
     match Address::from_str(addr_str) {
         Ok(address) => Ok(address.assume_checked()),
         Err(_) => Err("Invalid address string"),
     }
 }
 
-pub fn parse_address_type(s: &str) -> Result<AddressType, &'static str> {
+fn parse_address_type(s: &str) -> Result<AddressType, &'static str> {
     match s {
         "legacy" => Ok(AddressType::Legacy),
         "p2sh-segwit" => Ok(AddressType::P2shSegwit),
         "bech32" => Ok(AddressType::Bech32),
         "bech32m" => Ok(AddressType::Bech32m),
         _ => Err("Unknown address type"),
+    }
+}
+
+fn parse_utxo_strategy(s: &str) -> Result<UTXOStrategy, &'static str> {
+    match s {
+        "branch-and-bound" => Ok(UTXOStrategy::BranchAndBound),
+        "fifo" => Ok(UTXOStrategy::Fifo),
+        "largest-first" => Ok(UTXOStrategy::LargestFirst),
+        _ => Err("Unknown UTXO selection strategy"),
     }
 }

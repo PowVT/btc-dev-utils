@@ -51,12 +51,8 @@ get-tx txid="txid":
     RUST_LOG=info ./target/release/btc-dev-utils -i {{ txid }} get-tx
 
 # create a signed BTC transaction
-sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.99" fee_amount="0.01":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} sign-tx
-
-# create and broadcast a signed BTC transaction
-sign-and-broadcast-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.99" fee_amount="0.01" max_fee_rate="10000":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} -u {{ max_fee_rate }} sign-and-broadcast-tx
+sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.99" fee_amount="0.01" utxo_strat="fifo":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} -y {{ utxo_strat }} sign-tx
 
 # broadcast a signed BTC transaction
 broadcast-tx tx_hex="tx_hex"  max_fee_rate="10000":
@@ -67,8 +63,8 @@ send-btc wallet_name="default_wallet" recipient="recpient_address" amount="10.0"
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} send-btc
 
 # create partially signed BTC transaction
-create-psbt wallet_name="default_wallet" recipient="recpient_address" amount="49.99" fee_amount="0.01":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} create-psbt
+create-psbt wallet_name="default_wallet" recipient="recpient_address" amount="49.99" fee_amount="0.01" utxo_strat="fifo":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -r {{ recipient }} -x {{ amount }} -f {{ fee_amount }} -y {{ utxo_strat }} create-psbt
 
 # decode partially signed BTC transaction (gets information about inputs and outputs)
 decode-psbt psbt="psbt_hex":

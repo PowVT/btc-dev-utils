@@ -2,8 +2,7 @@ use bitcoincore_rpc::{Auth, Client};
 use bitcoin::Network;
 use crate::settings::Settings;
 
-
-pub(crate) fn create_rpc_client(settings: &Settings, wallet_name: Option<&str>) -> Client {
+pub fn create_rpc_client(settings: &Settings, wallet_name: Option<&str>) -> Client {
     let port = match settings.network {
         Network::Bitcoin => 8332,
         Network::Testnet => 18332,

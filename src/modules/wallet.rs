@@ -1,13 +1,20 @@
 use anyhow::{anyhow, Result};
 use bitcoin::{Address, Amount, Network, OutPoint, Transaction, Txid};
-use bitcoincore_rpc::json::{AddressType, GetBalancesResult, GetWalletInfoResult, ListUnspentQueryOptions, ListUnspentResultEntry, WalletProcessPsbtResult};
+use bitcoincore_rpc::json::{
+    AddressType,
+    GetBalancesResult,
+    GetWalletInfoResult,
+    ListUnspentQueryOptions,
+    ListUnspentResultEntry,
+    WalletProcessPsbtResult
+};
 use bitcoincore_rpc::jsonrpc::serde_json::{json, Value};
 use bitcoincore_rpc::{Client, RpcApi};
 use log::{debug, info};
 use serde::Deserialize;
 
 use crate::settings::Settings;
-use crate::modules::client::create_rpc_client;
+use crate::modules::bitcoind_conn::create_rpc_client;
 
 pub(crate) struct Wallet {
     client: Client,
