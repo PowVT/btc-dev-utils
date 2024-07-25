@@ -76,12 +76,12 @@ pub fn new_multisig_wallet(nrequired: u32, wallet_names: &Vec<String>, multisig_
         let _ = new_wallet(wallet_name, settings);
     }
 
-    // Extract the xpub of each wallet
+    // Extract the xpub (extended pubkeys) of each wallet
     for (i, wallet_name) in wallet_names.iter().enumerate() {
         let descriptors: serde_json::Value = list_descriptors(wallet_name, settings)?;
         let descriptors_array: &Vec<serde_json::Value> = descriptors["descriptors"].as_array().unwrap();
 
-        // Find the correct descriptors for external and internal xpubs
+        // Find the correct descriptors for internal and external xpubs
         xpubs = extract_int_ext_xpubs(xpubs, descriptors_array.clone(), i)?;
     }
 

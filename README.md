@@ -107,6 +107,40 @@ The commands `just bootstrap-btc` and `just bootstrap-ord` will need to run in t
    just kill-all
    ```
 
+### Note about UTXO Selection Strategies
+
+When generating a signed transaction, you have four options for selecting which UTXOs to spend. These strategies can result in different outcomes, especially if you have many UTXOs in your wallet. Here are the available strategies and some considerations for choosing the right one:
+
+1. **`branch-and-bound`**:
+   - **Description**: This strategy exhaustively searches for the optimal combination of UTXOs to minimize change.
+   - **Pros**: Can provide the most efficient use of UTXOs by finding the best combination.
+   - **Cons**: Computationally intensive and may be slow when dealing with a large number of UTXOs.
+
+2. **`fifo` (First In, First Out)**:
+   - **Description**: Selects the oldest UTXOs first.
+   - **Pros**: Simple and efficient; can help reduce the number of UTXOs over time.
+   - **Cons**: May result in larger transaction sizes if older UTXOs are small.
+
+3. **`largest-first`**:
+   - **Description**: Selects the largest UTXOs first.
+   - **Pros**: Results in smaller transaction payloads, potentially reducing transaction fees.
+   - **Cons**: May leave a large number of small UTXOs in your wallet, leading to inefficiencies later.
+
+4. **`smallest-first`**:
+   - **Description**: Selects the smallest UTXOs first.
+   - **Pros**: Helps consolidate many small UTXOs, which can be useful for cleanup.
+   - **Cons**: Leads to larger transaction sizes, increasing transaction fees.
+
+#### Choosing a Strategy
+
+When selecting a UTXO strategy, consider the following factors:
+
+- **Transaction Size and Fees**: Smaller UTXOs result in larger transaction data and higher fees, while larger UTXOs minimize transaction size and fees.
+- **Wallet Cleanup**: Using strategies like `smallest-first` can help clean up many small UTXOs.
+- **Performance**: The `branch-and-bound` strategy, while optimal, can be slow with many UTXOs. Simpler strategies like `fifo` and `largest-first` are faster.
+
+By carefully choosing your UTXO selection strategy, you can optimize your transactions for size, fees, or performance based on your specific needs.
+
 ### **Settings**
 
 The `settings.toml` file is a way to configure the Bitcoin network and the network credentials to use. If you choose to update the username and/or password be sure to update the justfile as well.

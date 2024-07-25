@@ -14,8 +14,11 @@ pub enum Target {
 pub enum UTXOStrategy {
     BranchAndBound,
     Fifo,
-    LargestFirst
+    LargestFirst,
+    SmallestFirst
 }
+
+/// Run arbitrary command on the btc or ord services
 
 pub fn run_command(command: &str, target: Target, settings: &Settings) -> String {
     let mut full_command = String::from(command);
@@ -60,6 +63,8 @@ pub fn run_command(command: &str, target: Target, settings: &Settings) -> String
     return stdout;
 }
 
+/// Extract xpubs from descriptors
+
 pub fn extract_int_ext_xpubs(
     mut xpubs: HashMap<String,String>,
     descriptors_array: Vec<serde_json::Value>,
@@ -99,6 +104,8 @@ pub fn extract_int_ext_xpubs(
     Ok(xpubs)
 }
 
+/// UTXO Selection Strategies
+
 pub fn strat_handler(
     utxos: &[ListUnspentResultEntry],
     target_amount: Amount,
@@ -109,6 +116,7 @@ pub fn strat_handler(
         UTXOStrategy::BranchAndBound => select_utxos_branch_and_bound(utxos, target_amount, fee_amount).ok_or("Unable to find sufficient UTXOs".into()),
         UTXOStrategy::Fifo => Ok(select_utxos_fifo(utxos, target_amount, fee_amount)),
         UTXOStrategy::LargestFirst => Ok(select_utxos_largest_first(utxos, target_amount, fee_amount)),
+        UTXOStrategy::SmallestFirst => Ok(select_utxos_smallest_first(utxos, target_amount, fee_amount)),
     }
 }
 
@@ -159,23 +167,8 @@ fn select_utxos_fifo(
     target_amount: Amount,
     fee_amount: Amount,
 ) -> Vec<ListUnspentResultEntry> {
-    let mut selected_utxos = Vec::new();
-    let mut total_amount = Amount::from_sat(0);
-
-    for utxo in utxos.iter() {
-        selected_utxos.push(utxo.clone());
-        total_amount += utxo.amount;
-
-        if total_amount >= target_amount + fee_amount {
-            break;
-        }
-    }
-
-    if total_amount < target_amount + fee_amount {
-        panic!("Insufficient UTXOs to meet target amount");
-    }
-
-    selected_utxos
+    let sorted_utxos = utxos.to_vec();
+    return select_utxos(sorted_utxos, target_amount, fee_amount);
 }
 
 fn select_utxos_largest_first(
@@ -183,12 +176,32 @@ fn select_utxos_largest_first(
     target_amount: Amount,
     fee_amount: Amount,
 ) -> Vec<ListUnspentResultEntry> {
-    let mut selected_utxos = Vec::new();
-    let mut total_amount = Amount::from_sat(0);
-
     // Sort UTXOs by amount in descending order
     let mut sorted_utxos = utxos.to_vec();
     sorted_utxos.sort_by(|a, b| b.amount.cmp(&a.amount));
+
+    return select_utxos(sorted_utxos, target_amount, fee_amount);
+}
+
+fn select_utxos_smallest_first(
+    utxos: &[ListUnspentResultEntry],
+    target_amount: Amount,
+    fee_amount: Amount,
+) -> Vec<ListUnspentResultEntry> {
+    // Sort UTXOs by amount in descending order
+    let mut sorted_utxos = utxos.to_vec();
+    sorted_utxos.sort_by(|a, b| a.amount.cmp(&b.amount));
+
+    return select_utxos(sorted_utxos, target_amount, fee_amount);
+}
+
+fn select_utxos(
+    sorted_utxos: Vec<ListUnspentResultEntry>,
+    target_amount: Amount,
+    fee_amount: Amount
+) -> Vec<ListUnspentResultEntry> {
+    let mut selected_utxos = Vec::new();
+    let mut total_amount = Amount::from_sat(0);
 
     for utxo in sorted_utxos.iter() {
         selected_utxos.push(utxo.clone());

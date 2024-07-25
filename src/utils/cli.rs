@@ -133,6 +133,7 @@ fn parse_utxo_strategy(s: &str) -> Result<UTXOStrategy, &'static str> {
         "branch-and-bound" => Ok(UTXOStrategy::BranchAndBound),
         "fifo" => Ok(UTXOStrategy::Fifo),
         "largest-first" => Ok(UTXOStrategy::LargestFirst),
+        "smallest-first" => Ok(UTXOStrategy::SmallestFirst),
         _ => Err("Unknown UTXO selection strategy"),
     }
 }
