@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Settings {
     pub network: Network,
-    pub netowrk_url: String,
+    pub network_url: String,
     pub bitcoin_rpc_username: String,
     pub bitcoin_rpc_password: String,
     pub create_wallets: bool,
@@ -25,7 +25,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             network: Network::Regtest,
-            netowrk_url: "http://127.0.0.1".to_string(),
+            network_url: "http://127.0.0.1".to_string(),
             bitcoin_rpc_username: "user".to_string(),
             bitcoin_rpc_password: "password".to_string(),
             create_wallets: true,

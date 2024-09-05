@@ -21,8 +21,8 @@ pub fn create_rpc_client(settings: &Settings, wallet_name: Option<&str>) -> Clie
     // let auth = bitcoincore_rpc::Auth::CookieFile("/Users/alex/Library/Application Support/Bitcoin/regtest/.cookie".to_string().parse().unwrap());
 
     let url = match wallet_name {
-        None => format!("{}:{}", settings.netowrk_url, port),
-        Some(name) => format!("{}:{}/wallet/{}", settings.netowrk_url, port, name),
+        None => format!("{}:{}", settings.network_url, port),
+        Some(name) => format!("{}:{}/wallet/{}", settings.network_url, port, name),
     };
 
     Client::new(&url, auth.clone()).unwrap()
