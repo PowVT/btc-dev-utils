@@ -89,6 +89,7 @@ The commands `just bootstrap-btc` and `just bootstrap-ord` will need to run in t
 | `just mine-blocks` | `<wallet_name> <number_of_blocks_to_mine>` | On the Regtest network, mine the specified number of blocks. The program will generate a recipient address for the block rewards. Remember, coinbase transactions are only available for spending after 100 block confirmations. |
 | `just get-tx` | `<tx_hash>` | Get information related to a specific transaction that was broadcast to the network. |
 | `just broadcast-tx` | `<signed_tx_hash> <max-fee-rate>` | Broadcast a signed transaction to the network. Optionally, pass a fee rate in sats/vByte that is the max fee rate you are willing to broadcast transactions for. Passing a fee rate of `0` will bypass all fee rate restrictions implemented by the wallet. |
+| `just get-spendable-balance` | `<address>` | Sum all UTXO amounts where the number of block confirmations is greater than or equal to 6. |
 
 #### Oridinals Examples:
 - In one terminal start the bitcoin daemon: 
