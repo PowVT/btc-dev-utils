@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Action::DeriveAddresses => derive_addresses(&args.descriptor, &args.start, &args.end, &settings),
         Action::RescanBlockchain => rescan_blockchain(&settings),
         Action::GetBalance => get_balances(&args.wallet_name, &settings),
-        Action::GetAddressBalance => get_spendable_balance(&args.address, &settings),
+        Action::GetSpendableBalance => get_spendable_balance(&args.address, &settings),
         Action::MineBlocks => mine_blocks_wrapper(&args.wallet_name, args.blocks, &settings),
         Action::ListUnspent => list_unspent(&args.wallet_name, &settings),
         Action::GetTx => get_tx(&args.txid, &settings),

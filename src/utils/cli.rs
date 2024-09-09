@@ -105,7 +105,7 @@ pub enum Action {
     DeriveAddresses,
     RescanBlockchain,
     GetBalance,
-    GetAddressBalance,
+    GetSpendableBalance,
     MineBlocks,
     ListUnspent,
     GetTx,

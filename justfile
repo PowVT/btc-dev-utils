@@ -46,8 +46,8 @@ get-balance wallet_name="default_wallet":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} get-balance
 
 # get any bitcoin address balance
-get-address-balance address="address":
-    RUST_LOG=info ./target/release/btc-dev-utils -a {{ address }} get-address-balance
+get-spendable-balance address="address":
+    RUST_LOG=info ./target/release/btc-dev-utils -a {{ address }} get-spendable-balance
 
 # mine blocks to a particular wallet
 mine-blocks wallet_name="default_wallet" blocks="20":
