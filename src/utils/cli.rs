@@ -95,6 +95,7 @@ pub struct Cli {
 
 #[derive(Parser)]
 pub enum Action {
+    GetBlockHeight,
     NewWallet,
     GetWalletInfo,
     ListDescriptors,
@@ -104,6 +105,7 @@ pub enum Action {
     DeriveAddresses,
     RescanBlockchain,
     GetBalance,
+    GetAddressBalance,
     MineBlocks,
     ListUnspent,
     GetTx,

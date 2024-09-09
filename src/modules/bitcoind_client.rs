@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
-use bitcoin::Address;
+use bitcoin::{Address, Amount};
+use bitcoincore_rpc::json::ScanTxOutRequest;
 use bitcoincore_rpc::{json::FinalizePsbtResult, RpcApi, RawTx, Client};
 
 use log::info;
@@ -10,6 +11,16 @@ use crate::settings::Settings;
 use crate::modules::bitcoind_conn::create_rpc_client;
 
 /// Blockchain Ops
+
+pub fn get_block_height(settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let client: Client = create_rpc_client(settings, None);
+
+    let height = client.get_block_count()?;
+
+    info!("Block height: {}", height);
+
+    Ok(())
+}
 
 pub fn mine_blocks(blocks: Option<u64>, address: &Address, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let client: Client = create_rpc_client(settings, None);
@@ -121,6 +132,47 @@ pub fn finalize_psbt_and_broadcast(psbt: &str, settings: &Settings) -> Result<()
 
     let tx_id: String = broadcast_tx(&client, &raw_hex, Some(0.0))?; // passing 0 as max fee rate will have the wallet estimate the fee rate
     info!("Tx broadcasted: {}", tx_id);
+
+    Ok(())
+}
+
+/// Address Ops
+
+/// NOTE: this function does not check if the UTXO is from coinbase rewards or not, it only
+/// checks if the UTXO has greater than or equal to 6 confirmations.
+pub fn get_spendable_balance(address: &Address, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let client = create_rpc_client(settings, None);
+
+    let descriptor = format!("addr({})", address);
+    let scan_request = ScanTxOutRequest::Single(descriptor);
+    let result = client.scan_tx_out_set_blocking(&[scan_request])?;
+
+    let current_height = client.get_block_count()?;
+
+    let mut total_spendable = Amount::from_sat(0);
+    let mut spendable_utxos = Vec::new();
+
+    info!("Address: {}", address);
+    info!("UTXOs:");
+
+    for (index, utxo) in result.unspents.iter().enumerate() {
+        let confirmations = current_height - utxo.height + 1;
+
+        if confirmations >= 6 {
+            total_spendable += utxo.amount;
+            spendable_utxos.push(utxo);
+
+            info!("  UTXO {}: {} BTC (txid: {}, vout: {}, confirmations: {})", 
+                  index + 1, 
+                  utxo.amount.to_btc(), 
+                  utxo.txid, 
+                  utxo.vout,
+                  confirmations);
+        }
+    }
+
+    info!("Total Spendable Balance: {} BTC", total_spendable.to_btc());
+    info!("Number of Spendable UTXOs: {}", spendable_utxos.len());
 
     Ok(())
 }

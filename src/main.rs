@@ -11,8 +11,9 @@ use modules::bitcoind_client::{
     decode_psbt,
     finalize_psbt,
     finalize_psbt_and_broadcast,
-    get_tx,
-    rescan_blockchain
+    get_block_height,
+    get_spendable_balance,
+    get_tx, rescan_blockchain
 };
 
 use modules::wallet_ops::{
@@ -57,6 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     match args.action {
+        Action::GetBlockHeight => get_block_height(&settings),
         Action::NewWallet => new_wallet(&args.wallet_name, &settings),
         Action::GetWalletInfo => get_wallet_info(&args.wallet_name, &settings),
         Action::ListDescriptors => list_descriptors_wrapper(&args.wallet_name, &settings),
@@ -66,6 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Action::DeriveAddresses => derive_addresses(&args.descriptor, &args.start, &args.end, &settings),
         Action::RescanBlockchain => rescan_blockchain(&settings),
         Action::GetBalance => get_balances(&args.wallet_name, &settings),
+        Action::GetAddressBalance => get_spendable_balance(&args.address, &settings),
         Action::MineBlocks => mine_blocks_wrapper(&args.wallet_name, args.blocks, &settings),
         Action::ListUnspent => list_unspent(&args.wallet_name, &settings),
         Action::GetTx => get_tx(&args.txid, &settings),

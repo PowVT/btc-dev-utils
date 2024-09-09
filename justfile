@@ -6,6 +6,9 @@
 help:
     RUST_LOG=info ./target/release/btc-dev-utils -h
 
+get-block-height:
+    RUST_LOG=info ./target/release/btc-dev-utils get-block-height
+
 # get new wallet
 new-wallet wallet_name="default_wallet" address_type="bech32m":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -z {{ address_type }} new-wallet
@@ -41,6 +44,10 @@ rescan-blockchain:
 # get wallet balance
 get-balance wallet_name="default_wallet":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} get-balance
+
+# get any bitcoin address balance
+get-address-balance address="address":
+    RUST_LOG=info ./target/release/btc-dev-utils -a {{ address }} get-address-balance
 
 # mine blocks to a particular wallet
 mine-blocks wallet_name="default_wallet" blocks="20":
