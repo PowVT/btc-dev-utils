@@ -18,6 +18,7 @@ use modules::bitcoind_client::{
 use modules::wallet_ops::{
     create_psbt,
     get_address_info,
+    derive_addresses,
     get_balances,
     get_new_address,
     get_wallet_info,
@@ -61,7 +62,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Action::ListDescriptors => list_descriptors_wrapper(&args.wallet_name, &settings),
         Action::NewMultisig=> new_multisig_wallet(args.nrequired, &args.wallet_names, &args.multisig_name, &settings),
         Action::GetNewAddress => get_new_address(&args.wallet_name, &args.address_type, &settings),
-        Action::GetAddressInfo => get_address_info(&args.address, &settings),
+        Action::GetAddressInfo => get_address_info(&args.wallet_name, &args.address, &settings),
+        Action::DeriveAddresses => derive_addresses(&args.descriptor, &args.start, &args.end, &settings),
         Action::RescanBlockchain => rescan_blockchain(&settings),
         Action::GetBalance => get_balances(&args.wallet_name, &settings),
         Action::MineBlocks => mine_blocks_wrapper(&args.wallet_name, args.blocks, &settings),

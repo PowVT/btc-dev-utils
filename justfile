@@ -30,6 +30,10 @@ get-new-address wallet_name="default_wallet":
 get-address-info wallet_name="default_wallet" address="address":
     RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -a {{ address }} get-address-info
 
+# derive address
+derive-addresses descriptor="descriptor-here" start="0" end="2":
+    RUST_LOG=info ./target/release/btc-dev-utils -d "{{ descriptor }}" -s {{ start }} -e {{ end }} derive-addresses
+
 # Rescan the local blockchain for wallet related transactions. Use to import multisig wallet balances
 rescan-blockchain:
     RUST_LOG=info ./target/release/btc-dev-utils rescan-blockchain

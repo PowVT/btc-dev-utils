@@ -55,6 +55,8 @@ The commands `just bootstrap-btc` and `just bootstrap-ord` will need to run in t
 
 #### All Wallet Commands
 
+> Reference [bitcoin RPC docs](https://developer.bitcoin.org/reference/rpc/index.html) for example inputs of each command
+
 | Command | Inputs | Description |
 | ------- | ------ | ----------- |
 | `just new-wallet` | `<wallet_name>` | Create a new bitcoin wallet |
@@ -63,7 +65,8 @@ The commands `just bootstrap-btc` and `just bootstrap-ord` will need to run in t
 | `just list-unspent` | `<wallet_name>` | List all UTXOs for the specified wallet |
 | `just list-descriptors` | `<wallet_name>` | List all wallet descriptors for the specified wallet |
 | `just get-wallet-info` | `<wallet_name>` | Retrieve information related to the specified wallet |
-| `just get-address-info` | `<wallet_address>` | Retrieve information related to a specific address |
+| `just get-address-info` | `<wallet_name> <wallet_address>` | Retrieve information related to a specific address |
+| `just derive-addresses` | `<descriptor> <start> <end>` | Derives one or more addresses corresponding to an output descriptor |
 | `just sign-tx` | `<wallet_name> <recipient_address> <amount_in_btc> <fee_amount_in_btc> <utxo_selection_strategy>` | Using the specified wallet, sign a transaction sending an amount of BTC to a recipient address. The UTXO selection strategy defaults to FIFO. |
 | `just send-btc` | `<wallet_name> <recipient_address> <amount_in_btc>` | Using the specified wallet, this will automatically create, sign, and broadcast a BTC transaction to the network. The wallet will find the appropriate UTXO to use (the stategy cannot be specified here), calculate an appropriate fee for the tx, and send the change back to the sender. |
 | `just process-psbt` | `<wallet_name> <psbt_hash>` | Using the specified wallet, sign a PSBT. |

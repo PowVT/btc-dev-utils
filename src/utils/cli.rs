@@ -10,7 +10,7 @@ use super::utils::UTXOStrategy;
 
 #[derive(Parser)]
 pub struct Cli {
-    #[arg(short='s', long, default_value = "settings.toml")]
+    #[arg(long, default_value = "settings.toml")]
     pub settings_file: PathBuf,
 
     /// Name of the wallet
@@ -44,6 +44,18 @@ pub struct Cli {
     /// Wallet address
     #[arg(short='a', long, value_parser = string_to_address, default_value = "1F1tAaz5x1HUXrCNLbtMDqcw6o5GNn4xqX")] // dummy address, do not use
     pub address: Address,
+
+    /// Wallet descriptor
+    #[arg(short='d', long, default_value = "descriptor-here")]
+    pub descriptor: String,
+
+    /// Start index to derive
+    #[arg(short='s', long, default_value = "0")]
+    pub start: u32,
+
+    /// End index to derive
+    #[arg(short='e', long, default_value = "2")]
+    pub end: u32,
 
     /// Transaction amount
     #[arg(short='x', long, value_parser = parse_amount, default_value = "49.9")]
@@ -89,6 +101,7 @@ pub enum Action {
     NewMultisig,
     GetNewAddress,
     GetAddressInfo,
+    DeriveAddresses,
     RescanBlockchain,
     GetBalance,
     MineBlocks,

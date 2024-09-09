@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
-use bitcoin::{Address, Amount, Transaction};
+use bitcoin::{Address, Amount, Transaction, consensus::serialize};
 use bitcoincore_rpc::json::{CreateRawTransactionInput, GetAddressInfoResult, GetDescriptorInfoResult, GetWalletInfoResult, ListUnspentResultEntry, WalletCreateFundedPsbtResult};
 use bitcoincore_rpc::{Client, RawTx, RpcApi};
-use bitcoin::consensus::serialize;
 
-use log::info;
+use miniscript::bitcoin::secp256k1::Secp256k1;
+use miniscript::{Descriptor, DescriptorPublicKey};
+
+use log::{info, error};
 use serde_json::{json, Value};
 
 use crate::settings::Settings;
@@ -54,11 +56,41 @@ pub fn get_new_address(wallet_name: &str, address_type: &bitcoincore_rpc::json::
     Ok(())
 }
 
-pub fn get_address_info(address: &Address, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+pub fn get_address_info(wallet_name: &str, address: &Address, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let wallet: Wallet = Wallet::new(wallet_name, settings);
+
+    let address_info: GetAddressInfoResult = wallet.get_address_info(address)?;
+    info!("{:#?}", address_info);
+
+    Ok(())
+}
+
+pub fn derive_addresses(descriptor: &str, start: &u32, end: &u32, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
     let client = create_rpc_client(settings, None);
 
-    let address_info: GetAddressInfoResult = client.get_address_info(address)?;
-    info!("{:#?}", address_info);
+    let range: [u32; 2] = [*start, *end];
+
+    // Parse the descriptor and add checksum if it's missing
+    let desc = if !descriptor.contains('#') {
+        let secp = Secp256k1::new();
+        let (desc, _) = Descriptor::<DescriptorPublicKey>::parse_descriptor(&secp, descriptor)?;
+        desc.to_string()
+    } else {
+        descriptor.to_string()
+    };
+
+    match client.derive_addresses(&desc, Some(range)) {
+        Ok(addresses) => {
+            info!("Derived addresses:");
+            for (i, address) in addresses.iter().enumerate() {
+                info!("  {}: {:#?}", i + *start as usize, address);
+            }
+        },
+        Err(e) => {
+            error!("Error deriving addresses: {}", e);
+            return Err(Box::new(e));
+        }
+    }
 
     Ok(())
 }

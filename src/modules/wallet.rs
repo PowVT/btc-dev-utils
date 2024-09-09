@@ -1,12 +1,7 @@
 use anyhow::{anyhow, Result};
 use bitcoin::{Address, Amount, Network, OutPoint, Transaction, Txid};
 use bitcoincore_rpc::json::{
-    AddressType,
-    GetBalancesResult,
-    GetWalletInfoResult,
-    ListUnspentQueryOptions,
-    ListUnspentResultEntry,
-    WalletProcessPsbtResult
+    AddressType, GetAddressInfoResult, GetBalancesResult, GetWalletInfoResult, ListUnspentQueryOptions, ListUnspentResultEntry, WalletProcessPsbtResult
 };
 use bitcoincore_rpc::jsonrpc::serde_json::{json, Value};
 use bitcoincore_rpc::{Client, RpcApi};
@@ -107,6 +102,11 @@ impl Wallet {
 
     pub(crate) fn get_wallet_info(&self) -> Result<GetWalletInfoResult> {
         let info = self.client.get_wallet_info()?;
+        Ok(info)
+    }
+
+    pub(crate) fn get_address_info(&self, address: &Address) -> Result<GetAddressInfoResult> {
+        let info = self.client.get_address_info(address)?;
         Ok(info)
     }
     
