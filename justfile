@@ -6,12 +6,13 @@
 help:
     RUST_LOG=info ./target/release/btc-dev-utils -h
 
+# get current block height
 get-block-height:
     RUST_LOG=info ./target/release/btc-dev-utils get-block-height
 
 # get new wallet
-new-wallet wallet_name="default_wallet" address_type="bech32m":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -z {{ address_type }} new-wallet
+new-wallet wallet_name="default_wallet":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} new-wallet
 
 # get wallet info
 get-wallet-info wallet_name="default_wallet":
@@ -26,8 +27,8 @@ new-multisig required_signatures="2" wallet_names="default_wallet1,default_walle
     RUST_LOG=info ./target/release/btc-dev-utils -n {{ required_signatures }} -v {{ wallet_names }} -m {{ multisig_name }} new-multisig
 
 # get new wallet address
-get-new-address wallet_name="default_wallet":
-    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} get-new-address
+get-new-address wallet_name="default_wallet" address_type="bech32m":
+    RUST_LOG=info ./target/release/btc-dev-utils -w {{ wallet_name }} -z {{ address_type }} get-new-address
 
 # get address info
 get-address-info wallet_name="default_wallet" address="address":
@@ -60,6 +61,14 @@ list-unspent wallet_name="default_wallet":
 # get transaction data from transaction ID
 get-tx txid="txid":
     RUST_LOG=info ./target/release/btc-dev-utils -i {{ txid }} get-tx
+
+# get details about an unspent transaction output
+get-tx-out txid="txid" vout="0":
+    RUST_LOG=info ./target/release/btc-dev-utils -i {{ txid }} -o {{ vout }} get-tx-out
+
+# decode raw transaction
+decode-raw-tx tx_hex="tx_hex":
+    RUST_LOG=info ./target/release/btc-dev-utils -t {{ tx_hex }} decode-raw-tx
 
 # create a signed BTC transaction
 sign-tx wallet_name="default_wallet" recipient="recpient_address" amount="49.99" fee_amount="0.01" utxo_strat="fifo":
@@ -100,6 +109,10 @@ finalize-psbt psbt="combined_psbt_hex":
 # Finalize combined partially signed BTC transactions and broadcast it
 finalize-psbt-and-broadcast psbt="combined_psbt_hex":
     RUST_LOG=info ./target/release/btc-dev-utils -p {{ psbt }} finalize-psbt-and-broadcast
+
+# Verify a signed transaction
+verify-signed-tx tx_hex="tx_hex":
+    RUST_LOG=info ./target/release/btc-dev-utils -t {{ tx_hex }} verify-signed-tx
 
 # create and ordinals inscription
 inscribe-ord:

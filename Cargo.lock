@@ -104,6 +104,7 @@ dependencies = [
  "bech32 0.10.0-beta",
  "bitcoin-internals",
  "bitcoin_hashes 0.13.0",
+ "bitcoinconsensus",
  "hex-conservative",
  "hex_lit",
  "secp256k1 0.28.2",
@@ -134,6 +135,16 @@ dependencies = [
  "bitcoin-internals",
  "hex-conservative",
  "serde",
+]
+
+[[package]]
+name = "bitcoinconsensus"
+version = "0.20.2-0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54505558b77e0aa21b2491a7b39cbae9db22ac8b1bc543ef4600edb762306f9c"
+dependencies = [
+ "cc",
+ "libc",
 ]
 
 [[package]]

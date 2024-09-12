@@ -89,6 +89,14 @@ pub struct Cli {
     #[arg(short='l', long, value_delimiter = ',', default_value = "cHNidP8BAH0CAAAAAbAip9TqQ,cHNidP8BAH0CAAAAAbAip9TqQ")]
     pub psbts: Vec<String>,
 
+    /// Vout
+    #[arg(short='o', long, default_value = "0")]
+    pub vout: u32,
+
+    /// Transaction confirmations
+    #[arg(short='c', long, default_value = "0")]
+    pub confirmations: u32,
+
     #[command(subcommand)]
     pub action: Action,
 }
@@ -109,7 +117,9 @@ pub enum Action {
     MineBlocks,
     ListUnspent,
     GetTx,
+    GetTxOut,
     SignTx,
+    DecodeRawTx,
     BroadcastTx,
     SendBtc,
     CreatePsbt,
@@ -119,6 +129,7 @@ pub enum Action {
     CombinePsbts,
     FinalizePsbt,
     FinalizePsbtAndBroadcast,
+    VerifySignedTx,
     InscribeOrd
 }
 

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use bitcoin::{Address, Amount};
-use bitcoincore_rpc::json::ScanTxOutRequest;
+use bitcoincore_rpc::json::{GetRawTransactionResult, GetTxOutResult, ScanTxOutRequest};
 use bitcoincore_rpc::{json::FinalizePsbtResult, RpcApi, RawTx, Client};
 
 use log::info;
@@ -40,13 +40,52 @@ pub fn rescan_blockchain(settings: &Settings) -> Result<(), Box<dyn std::error::
 }
 
 /// Transaction Ops
-
-pub fn get_tx(txid: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client: Client = create_rpc_client(settings, None);
+ 
+pub fn get_tx(txid: &str, settings: &Settings) -> Result<GetRawTransactionResult, Box<dyn std::error::Error>> {
+    let client: Client = create_rpc_client(settings, None); 
 
     let txid_converted = bitcoin::Txid::from_str(txid)?;
     let tx = client.get_raw_transaction_info(&txid_converted, None)?;
+
+    Ok(tx)
+}
+
+pub fn get_tx_wrapper(txid: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let tx = get_tx(txid, settings)?;
+
     info!("{:#?}", tx);
+
+    Ok(())
+}
+
+pub fn get_tx_out(txid: &str, vout: u32, confirmations: Option<u32>, settings: &Settings) -> Result<GetTxOutResult, Box<dyn std::error::Error>> {
+    let client: Client = create_rpc_client(settings, None);
+
+    let txid_converted = bitcoin::Txid::from_str(txid)?;
+    let tx_out = client.get_tx_out(&txid_converted, vout, None)?; // None = include_mempool
+
+    match tx_out {
+        Some(tx_out) => {
+            if let Some(confirmations) = confirmations {
+                if tx_out.confirmations >= confirmations {
+                    Ok(tx_out)
+                } else {
+                    Err(format!("TxOut not enough confirmations").into())
+                }
+            } else {
+                Ok(tx_out)
+            }
+        },
+        None => {
+            Err(format!("TxOut not found").into())
+        },
+    }
+}
+
+pub fn get_tx_out_wrapper(txid: &str, vout: u32, confirmations: Option<u32>, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let tx_out = get_tx_out(txid, vout, confirmations,settings)?;
+
+    info!("{:#?}", tx_out);
 
     Ok(())
 }
@@ -74,6 +113,15 @@ pub fn broadcast_tx_wrapper(tx_hex: &str, max_fee_rate: f64, settings: &Settings
     let client: Client = create_rpc_client(settings, None);
 
     let _ = broadcast_tx(&client, tx_hex, Some(max_fee_rate))?;
+
+    Ok(())
+}
+
+pub fn decode_raw_tx(tx_hex: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+    let client = create_rpc_client(settings, None);
+
+    let tx = client.decode_raw_transaction(tx_hex, None)?;
+    info!("{:#?}", tx);
 
     Ok(())
 }

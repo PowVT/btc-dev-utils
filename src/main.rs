@@ -1,19 +1,22 @@
 use std::{fs, thread, time::Duration, path::Path};
 
 use log::{error, info};
+use modules::verification::verify_signed_tx;
 use serde_json::Value;
 use clap::Parser;
 
 use modules::bitcoind_client::{
     analyze_psbt,
     broadcast_tx_wrapper,
-    combine_psbts,
-    decode_psbt,
+    combine_psbts, decode_psbt,
+    decode_raw_tx,
     finalize_psbt,
     finalize_psbt_and_broadcast,
     get_block_height,
     get_spendable_balance,
-    get_tx, rescan_blockchain
+    get_tx_out_wrapper,
+    get_tx_wrapper,
+    rescan_blockchain
 };
 
 use modules::wallet_ops::{
@@ -71,8 +74,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Action::GetSpendableBalance => get_spendable_balance(&args.address, &settings),
         Action::MineBlocks => mine_blocks_wrapper(&args.wallet_name, args.blocks, &settings),
         Action::ListUnspent => list_unspent(&args.wallet_name, &settings),
-        Action::GetTx => get_tx(&args.txid, &settings),
+        Action::GetTx => get_tx_wrapper(&args.txid, &settings),
+        Action::GetTxOut => get_tx_out_wrapper(&args.txid, args.vout, Some(args.confirmations), &settings),
         Action::SignTx => sign_tx_wrapper(&args.wallet_name, &args.recipient, args.amount, args.fee_amount, args.utxo_strat, &settings),
+        Action::DecodeRawTx => decode_raw_tx(&args.tx_hex, &settings),
         Action::BroadcastTx => broadcast_tx_wrapper( &args.tx_hex, args.max_fee_rate, &settings),
         Action::SendBtc => send_btc(&args.wallet_name, &args.recipient, args.amount, &settings),
         Action::CreatePsbt => create_psbt(&args.wallet_name, &args.recipient, args.amount, args.fee_amount, args.utxo_strat, &settings),
@@ -82,6 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Action::CombinePsbts => combine_psbts(&args.psbts, &settings),
         Action::FinalizePsbt => finalize_psbt(&args.psbt_hex, &settings),
         Action::FinalizePsbtAndBroadcast => finalize_psbt_and_broadcast(&args.psbt_hex, &settings),
+        Action::VerifySignedTx => verify_signed_tx(&args.tx_hex, &settings),
         Action::InscribeOrd => regtest_inscribe_ord(&settings)
     }
 }
