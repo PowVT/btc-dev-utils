@@ -20,7 +20,7 @@ pub fn verify_signed_tx(tx_hex: &str, settings: &Settings) -> Result<(), Box<dyn
         }
     }
 
-    // Create a closure to fetch the TxOut for each input
+    // Closure to fetch previous transaction output (TxOut) for each input
     let mut spent = |outpoint: &OutPoint| -> Option<TxOut> {
         match get_tx(&outpoint.txid.to_string(), settings) {
             Ok(prev_tx) => prev_tx.vout.get(outpoint.vout as usize).map(|output| {
@@ -33,7 +33,7 @@ pub fn verify_signed_tx(tx_hex: &str, settings: &Settings) -> Result<(), Box<dyn
         }
     };
 
-    // Verify the transaction
+    // Verify the transaction. For each input, check if unlocking script is valid based on the corresponding TxOut.
     tx.verify(&mut spent).map_err(|e| {format!("Transaction verification failed: {:?}", e)})?;
 
     println!("Transaction verified successfully");

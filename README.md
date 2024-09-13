@@ -69,7 +69,7 @@ The commands `just bootstrap-btc` and `just bootstrap-ord` will need to run in t
 | `just derive-addresses` | `<descriptor> <start> <end>` | Derives one or more addresses corresponding to an output descriptor |
 | `just sign-tx` | `<wallet_name> <recipient_address> <amount_in_btc> <fee_amount_in_btc> <utxo_selection_strategy>` | Using the specified wallet, sign a transaction sending an amount of BTC to a recipient address. The UTXO selection strategy defaults to FIFO. |
 | `just send-btc` | `<wallet_name> <recipient_address> <amount_in_btc>` | Using the specified wallet, this will automatically create, sign, and broadcast a BTC transaction to the network. The wallet will find the appropriate UTXO to use (the stategy cannot be specified here), calculate an appropriate fee for the tx, and send the change back to the sender. |
-| `just process-psbt` | `<wallet_name> <psbt_hash>` | Using the specified wallet, sign a PSBT. |
+| `just wallet-process-psbt` | `<wallet_name> <psbt_hash>` | Using the specified wallet, sign a PSBT. |
 
 #### All Multisig Commands
 
@@ -79,6 +79,10 @@ The commands `just bootstrap-btc` and `just bootstrap-ord` will need to run in t
 | `just create-psbt` | `<multisig_wallet_name> <recipient_address> <amount_in_btc> <fee_amount_in_btc> <utxo_selection_strategy>` | Create a multisig transaction that will need to be signed by the signers on the multisig. The UTXO selection strategy defaults to FIFO. Refer to the wallet command `process-psbt` for signing a PSBT. |
 | `just decode-psbt` | `<psbt_hash>` | Retrieve the inputs and outputs for a specific PSBT. |
 | `just analyze-psbt` | `<psbt_hash>` | Retrieve network-related information related to a specific PSBT. |
+| `just combine-psbts` | `<signed_psbt_1,signed_psbt_2,...>` | Combine multiple partially signed Bitcoin transactions into one transaction. |
+| `just finalize-psbt` | `<combined_psbt_hex>` | Using a multisig transaction that is fully signed, it will produce a network serialized transaction which can be broadcast with `sendrawtransaction`. |
+| `just finalize-psbt-and-braodcast` | `<combined_psbt_hex>` | Using a multisig transaction that is fully signed, it will produce a network serialized transaction and broadcast it to the network. |
+
 
 #### All BTC Network Commands
 
@@ -88,6 +92,7 @@ The commands `just bootstrap-btc` and `just bootstrap-ord` will need to run in t
 | `just kill-all` | - | Terminate the local Regtest chain and clear all cached data. This will also stop the ordinals server and clear that data as well if it is present. |
 | `just mine-blocks` | `<wallet_name> <number_of_blocks_to_mine>` | On the Regtest network, mine the specified number of blocks. The program will generate a recipient address for the block rewards. Remember, coinbase transactions are only available for spending after 100 block confirmations. |
 | `just get-tx` | `<tx_hash>` | Get information related to a specific transaction that was broadcast to the network. |
+| `just get-tx-out` | `<tx_hash> <vout_index> <num_confirmations>` | Get the tx outputs related to a specific transaction that was broadcast to the network. Optionally pass a minimum number of confirmations to filter out vouts with less than the specified number of confirmations. |
 | `just broadcast-tx` | `<signed_tx_hash> <max-fee-rate>` | Broadcast a signed transaction to the network. Optionally, pass a fee rate in sats/vByte that is the max fee rate you are willing to broadcast transactions for. Passing a fee rate of `0` will bypass all fee rate restrictions implemented by the wallet. |
 | `just get-spendable-balance` | `<address>` | Sum all UTXO amounts where the number of block confirmations is greater than or equal to 6. |
 
