@@ -114,10 +114,6 @@ finalize-psbt-and-broadcast psbt="combined_psbt_hex":
 verify-signed-tx tx_hex="tx_hex":
     RUST_LOG=info ./target/release/btc-dev-utils -t {{ tx_hex }} verify-signed-tx
 
-# create and ordinals inscription
-inscribe-ord:
-    RUST_LOG=info ./target/release/btc-dev-utils inscribe-ord
-
 ###################################
 # Build and boostrapping commands #
 ###################################
@@ -190,6 +186,8 @@ kill-all:
     just clean-ord-data
 
 # build rust binary
+alias b := build
+
 build:
     cargo build --release
 

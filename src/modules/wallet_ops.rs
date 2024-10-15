@@ -1,76 +1,141 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, error::Error, fmt};
+
+use log::info;
+
+use serde_json::{json, Value};
 
 use bitcoin::{Address, Amount, Transaction, consensus::serialize};
-use bitcoincore_rpc::json::{CreateRawTransactionInput, GetAddressInfoResult, GetDescriptorInfoResult, GetWalletInfoResult, ListUnspentResultEntry, WalletCreateFundedPsbtResult};
-use bitcoincore_rpc::{Client, RawTx, RpcApi};
+use bitcoincore_rpc::json::{AddressType, CreateRawTransactionInput, GetAddressInfoResult, GetDescriptorInfoResult, GetWalletInfoResult, ListUnspentResultEntry, WalletCreateFundedPsbtResult};
+use bitcoincore_rpc::{Client, RawTx, RpcApi, Error as RpcError};
 
 use miniscript::bitcoin::secp256k1::Secp256k1;
 use miniscript::{Descriptor, DescriptorPublicKey};
 
-use log::{info, error};
-use serde_json::{json, Value};
-
 use crate::settings::Settings;
-use crate::modules::wallet::Wallet;
-use crate::modules::bitcoind_conn::create_rpc_client;
-use crate::modules::bitcoind_client::mine_blocks;
-use crate::utils::utils::{extract_int_ext_xpubs, strat_handler, UTXOStrategy};
+use crate::modules::wallet::{Wallet, WalletError};
+use crate::modules::bitcoind_conn::{create_rpc_client, ClientError};
+use crate::modules::bitcoind_client::{mine_blocks, BitcoindError};
+use crate::utils::utils::{extract_int_ext_xpubs, strat_handler, UTXOStrategy, UtilsError};
 
-/// General wallet operations
+#[derive(Debug)]
+pub enum WalletOpsError {
+    WalletError(WalletError),
+    ClientError(ClientError),
+    RpcError(RpcError),
+    BitcoindError(BitcoindError),
+    UtilsError(UtilsError),
+    InsufficientBalance,
+    NoUnspentTransactions,
+    NotMultisigWallet,
+    DescriptorError(miniscript::Error),
+    JsonError(serde_json::Error),
+    Other(String),
+}
 
-pub fn new_wallet(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    Wallet::new(wallet_name, settings);
-    
+impl fmt::Display for WalletOpsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WalletOpsError::WalletError(err) => write!(f, "Wallet error: {}", err),
+            WalletOpsError::ClientError(err) => write!(f, "Client error: {}", err),
+            WalletOpsError::RpcError(err) => write!(f, "RPC error: {}", err),
+            WalletOpsError::BitcoindError(err) => write!(f, "Bitcoind error: {}", err),
+            WalletOpsError::UtilsError(e) => write!(f, "Utils error: {}", e),
+            WalletOpsError::InsufficientBalance => write!(f, "Insufficient balance"),
+            WalletOpsError::NoUnspentTransactions => write!(f, "No unspent transactions"),
+            WalletOpsError::NotMultisigWallet => write!(f, "Wallet is not a multisig wallet"),
+            WalletOpsError::DescriptorError(err) => write!(f, "Descriptor error: {}", err),
+            WalletOpsError::JsonError(err) => write!(f, "JSON error: {}", err),
+            WalletOpsError::Other(err) => write!(f, "Other error: {}", err),
+        }
+    }
+}
+
+impl Error for WalletOpsError {}
+
+impl From<WalletError> for WalletOpsError {
+    fn from(err: WalletError) -> Self {
+        WalletOpsError::WalletError(err)
+    }
+}
+
+impl From<ClientError> for WalletOpsError {
+    fn from(err: ClientError) -> Self {
+        WalletOpsError::ClientError(err)
+    }
+}
+
+impl From<RpcError> for WalletOpsError {
+    fn from(err: RpcError) -> Self {
+        WalletOpsError::RpcError(err)
+    }
+}
+
+impl From<BitcoindError> for WalletOpsError {
+    fn from(err: BitcoindError) -> Self {
+        WalletOpsError::BitcoindError(err)
+    }
+}
+
+impl From<UtilsError> for WalletOpsError {
+    fn from(err: UtilsError) -> Self {
+        WalletOpsError::UtilsError(err)
+    }
+}
+
+impl From<miniscript::Error> for WalletOpsError {
+    fn from(err: miniscript::Error) -> Self {
+        WalletOpsError::DescriptorError(err)
+    }
+}
+
+impl From<serde_json::Error> for WalletOpsError {
+    fn from(err: serde_json::Error) -> Self {
+        WalletOpsError::JsonError(err)
+    }
+}
+
+pub fn new_wallet(wallet_name: &str, settings: &Settings) -> Result<(), WalletOpsError> {
+    Wallet::new(wallet_name, settings)?;
     Ok(())
 }
 
-pub fn get_wallet_info(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let wallet: Wallet = Wallet::new(wallet_name, settings);
-
+pub fn get_wallet_info(wallet_name: &str, settings: &Settings) -> Result<(), WalletOpsError> {
+    let wallet: Wallet = Wallet::new(wallet_name, settings)?;
     let wallet_info: GetWalletInfoResult = wallet.get_wallet_info()?;
     info!("{:#?}", wallet_info);
-
     Ok(())
 }
 
-pub fn list_descriptors(wallet_name: &str, settings: &Settings) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-    let client = create_rpc_client(settings, Some(wallet_name));
+pub fn list_descriptors(wallet_name: &str, settings: &Settings) -> Result<serde_json::Value, WalletOpsError> {
+    let client = create_rpc_client(settings, Some(wallet_name))?;
     let descriptors: serde_json::Value = client.call("listdescriptors", &[])?;
-
     Ok(descriptors)
 }
 
-pub fn list_descriptors_wrapper(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+pub fn list_descriptors_wrapper(wallet_name: &str, settings: &Settings) -> Result<(), WalletOpsError> {
     let descriptors: Value = list_descriptors(wallet_name, settings)?;
     info!("{:#?}", descriptors);
-
     Ok(())
 }
 
-pub fn get_new_address(wallet_name: &str, address_type: &bitcoincore_rpc::json::AddressType, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let wallet: Wallet = Wallet::new(wallet_name, settings);
-
+pub fn get_new_address(wallet_name: &str, address_type: &AddressType, settings: &Settings) -> Result<(), WalletOpsError> {
+    let wallet: Wallet = Wallet::new(wallet_name, settings)?;
     let address: Address = wallet.new_address(address_type)?;
-    info!("{}",format!("{:?}", address));
-
+    info!("{}", format!("{:?}", address));
     Ok(())
 }
 
-pub fn get_address_info(wallet_name: &str, address: &Address, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let wallet: Wallet = Wallet::new(wallet_name, settings);
-
+pub fn get_address_info(wallet_name: &str, address: &Address, settings: &Settings) -> Result<(), WalletOpsError> {
+    let wallet: Wallet = Wallet::new(wallet_name, settings)?;
     let address_info: GetAddressInfoResult = wallet.get_address_info(address)?;
     info!("{:#?}", address_info);
-
     Ok(())
 }
 
-pub fn derive_addresses(descriptor: &str, start: &u32, end: &u32, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client = create_rpc_client(settings, None);
-
+pub fn derive_addresses(descriptor: &str, start: &u32, end: &u32, settings: &Settings) -> Result<(), WalletOpsError> {
+    let client = create_rpc_client(settings, None)?;
     let range: [u32; 2] = [*start, *end];
 
-    // Parse the descriptor and add checksum if it's missing
     let desc = if !descriptor.contains('#') {
         let secp = Secp256k1::new();
         let (desc, _) = Descriptor::<DescriptorPublicKey>::parse_descriptor(&secp, descriptor)?;
@@ -79,45 +144,32 @@ pub fn derive_addresses(descriptor: &str, start: &u32, end: &u32, settings: &Set
         descriptor.to_string()
     };
 
-    match client.derive_addresses(&desc, Some(range)) {
-        Ok(addresses) => {
-            info!("Derived addresses:");
-            for (i, address) in addresses.iter().enumerate() {
-                info!("  {}: {:#?}", i + *start as usize, address);
-            }
-        },
-        Err(e) => {
-            error!("Error deriving addresses: {}", e);
-            return Err(Box::new(e));
-        }
+    let addresses = client.derive_addresses(&desc, Some(range))?;
+    info!("Derived addresses:");
+    for (i, address) in addresses.iter().enumerate() {
+        info!("  {}: {:#?}", i + *start as usize, address);
     }
-
     Ok(())
 }
 
-pub fn new_multisig_wallet(nrequired: u32, wallet_names: &Vec<String>, multisig_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    // if the length of wallet_names is gt or equal to nrequired, error
+pub fn new_multisig_wallet(nrequired: u32, wallet_names: &Vec<String>, multisig_name: &str, settings: &Settings) -> Result<(), WalletOpsError> {
     if wallet_names.len() < nrequired as usize {
-        return Err("Error: More required signers than wallets".into());
+        return Err(WalletOpsError::Other("More required signers than wallets".into()));
     }
 
     let mut xpubs: HashMap<String, String> = HashMap::new();
 
-    // Create the descriptor wallets
     for wallet_name in wallet_names {
-        let _ = new_wallet(wallet_name, settings);
+        new_wallet(wallet_name, settings)?;
     }
 
-    // Extract the xpub (extended pubkeys) of each wallet
     for (i, wallet_name) in wallet_names.iter().enumerate() {
         let descriptors: serde_json::Value = list_descriptors(wallet_name, settings)?;
-        let descriptors_array: &Vec<serde_json::Value> = descriptors["descriptors"].as_array().unwrap();
-
-        // Find the correct descriptors for internal and external xpubs
+        let descriptors_array: &Vec<serde_json::Value> = descriptors["descriptors"].as_array()
+            .ok_or_else(|| WalletOpsError::Other("Invalid descriptor format".into()))?;
         xpubs = extract_int_ext_xpubs(xpubs, descriptors_array.clone(), i)?;
     }
 
-    // Define the multisig descriptors
     let num_signers = nrequired.to_string();
     let external_desc = format!(
         "wsh(sortedmulti({}, {}, {}, {}))",
@@ -128,14 +180,11 @@ pub fn new_multisig_wallet(nrequired: u32, wallet_names: &Vec<String>, multisig_
         num_signers, xpubs["internal_xpub_1"], xpubs["internal_xpub_2"], xpubs["internal_xpub_3"]
     );
 
-    // Create RPC client without wallet name for general operations
-    let client: Client = create_rpc_client(settings, None);
+    let client: Client = create_rpc_client(settings, None)?;
 
-    // Get descriptor information
     let external_desc_info: GetDescriptorInfoResult = client.get_descriptor_info(&external_desc)?;
     let internal_desc_info: GetDescriptorInfoResult = client.get_descriptor_info(&internal_desc)?;
 
-    // Extract the descriptors
     let external_descriptor: String = external_desc_info.descriptor;
     let internal_descriptor: String = internal_desc_info.descriptor;
 
@@ -153,70 +202,55 @@ pub fn new_multisig_wallet(nrequired: u32, wallet_names: &Vec<String>, multisig_
         "timestamp": json!("now")
     });
 
-    let multisig_desc = json!([multisig_ext_desc, multisig_int_desc]);  // Create an array with the JSON objects
+    let multisig_desc = json!([multisig_ext_desc, multisig_int_desc]);
 
-    // Create the multisig wallet
-    let _ = client.create_wallet(multisig_name, Some(true), Some(true), None, None);
+    client.create_wallet(multisig_name, Some(true), Some(true), None, None)?;
 
-    // import the descriptors
     let multisig_desc_vec: Vec<serde_json::Value> = serde_json::from_value(multisig_desc)?;
-    let client2 = create_rpc_client(settings, Some(multisig_name));
+    let client2 = create_rpc_client(settings, Some(multisig_name))?;
     client2.call::<serde_json::Value>("importdescriptors", &[json!(multisig_desc_vec)])?;
 
-    // Get wallet info
     get_wallet_info(multisig_name, settings)?;
 
     Ok(())
 }
 
-pub fn get_balances(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let wallet: Wallet = Wallet::new(wallet_name, settings);
-
+pub fn get_balances(wallet_name: &str, settings: &Settings) -> Result<(), WalletOpsError> {
+    let wallet: Wallet = Wallet::new(wallet_name, settings)?;
     let balances = wallet.get_balances()?;
     info!("{:#?}", balances);
-
     Ok(())
 }
 
-pub fn list_unspent(wallet_name: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let wallet: Wallet = Wallet::new(wallet_name, settings);
-
+pub fn list_unspent(wallet_name: &str, settings: &Settings) -> Result<(), WalletOpsError> {
+    let wallet: Wallet = Wallet::new(wallet_name, settings)?;
     let unspent_txs: Vec<ListUnspentResultEntry> = wallet.list_all_unspent(None)?;
     info!("{:#?}", unspent_txs);
-
     Ok(())
 }
 
-/// Mine blocks
-
-pub fn mine_blocks_wrapper(wallet_name: &str, blocks: u64, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let miner_wallet = Wallet::new(wallet_name, settings);
-    let address = miner_wallet.new_address(&bitcoincore_rpc::json::AddressType::Bech32)?;
-
+pub fn mine_blocks_wrapper(wallet_name: &str, blocks: u64, settings: &Settings) -> Result<(), WalletOpsError> {
+    let miner_wallet = Wallet::new(wallet_name, settings)?;
+    let address = miner_wallet.new_address(&AddressType::Bech32)?;
     mine_blocks(Some(blocks), &address, settings)?;
-
     Ok(())
 }
 
-/// Sign a transaction
-
-pub fn sign_tx(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: Amount, utxo_strat: UTXOStrategy, settings: &Settings) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let wallet: Wallet = Wallet::new(wallet_name, settings);
+pub fn sign_tx(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: Amount, utxo_strat: UTXOStrategy, settings: &Settings) -> Result<Vec<u8>, WalletOpsError> {
+    let wallet: Wallet = Wallet::new(wallet_name, settings)?;
     let balances = wallet.get_balances()?;
 
-    // check if balance is sufficient
     if balances.mine.trusted.to_sat() < amount.to_sat() {
-        panic!("Insufficient balance to send tx. Current balance: {}", balances.mine.trusted);
+        return Err(WalletOpsError::InsufficientBalance);
     }
 
-    // List all unspent transactions
     let unspent_txs: Vec<ListUnspentResultEntry> = wallet.list_all_unspent(None)?;
     if unspent_txs.is_empty() {
-        panic!("No unspent transactions");
+        return Err(WalletOpsError::NoUnspentTransactions);
     }
 
-    // Based on the strategy, select UTXOs
-    let selected_utxos = strat_handler(&unspent_txs, amount, fee_amount, utxo_strat)?;
+    let selected_utxos = strat_handler(&unspent_txs, amount, fee_amount, utxo_strat)
+        .map_err(|e| WalletOpsError::Other(e.to_string()))?;
 
     let mut utxo_inputs: Vec<CreateRawTransactionInput> = Vec::new();
     let mut total_amount = Amount::from_sat(0);
@@ -232,15 +266,13 @@ pub fn sign_tx(wallet_name: &str, recipient: &Address, amount: Amount, fee_amoun
     let mut outputs: HashMap<String, Amount> = HashMap::new();
     outputs.insert(recipient.to_string(), amount);
 
-    // Add change output if there's any remaining amount
     let change_amount = total_amount - amount - fee_amount;
     if change_amount.to_sat() > 0 {
-        let change_address: Address = wallet.new_address(&bitcoincore_rpc::json::AddressType::Bech32)?;
+        let change_address: Address = wallet.new_address(&AddressType::Bech32)?;
         outputs.insert(change_address.to_string(), change_amount);
     }
 
-    // Create raw transaction
-    let client: Client = create_rpc_client(settings, Some(wallet_name));
+    let client: Client = create_rpc_client(settings, Some(wallet_name))?;
     let tx: Transaction = client.create_raw_transaction(&utxo_inputs[..], &outputs, None, None)?;
 
     let signed_tx: Transaction = wallet.sign_tx(&tx)?;
@@ -250,44 +282,38 @@ pub fn sign_tx(wallet_name: &str, recipient: &Address, amount: Amount, fee_amoun
     Ok(serialize(&signed_tx))
 }
 
-pub fn sign_tx_wrapper(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: Amount, utxo_strat: UTXOStrategy, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let _ = sign_tx(wallet_name, recipient, amount, fee_amount, utxo_strat, settings)?;
-
+pub fn sign_tx_wrapper(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: Amount, utxo_strat: UTXOStrategy, settings: &Settings) -> Result<(), WalletOpsError> {
+    sign_tx(wallet_name, recipient, amount, fee_amount, utxo_strat, settings)?;
     Ok(())
 }
 
-/// Send BTC
-
-pub fn send_btc(wallet_name: &str, recipient: &Address, amount: Amount, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let wallet: Wallet = Wallet::new(wallet_name, settings);
-
+pub fn send_btc(wallet_name: &str, recipient: &Address, amount: Amount, settings: &Settings) -> Result<(), WalletOpsError> {
+    let wallet: Wallet = Wallet::new(wallet_name, settings)?;
     wallet.send(recipient, amount)?;
-
     Ok(())
 }
 
-/// PSBT operations
+pub fn create_psbt(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: Amount, utxo_strat: UTXOStrategy, settings: &Settings) -> Result<(), WalletOpsError> {
+    let wallet: Wallet = Wallet::new(wallet_name, settings)?;
 
-pub fn create_psbt(wallet_name: &str, recipient: &Address, amount: Amount, fee_amount: Amount, utxo_strat: UTXOStrategy, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let wallet: Wallet = Wallet::new(wallet_name, settings);
-
-    // ensure the wallet is a multisig wallet
+    // Ensure the wallet is a multisig wallet
     if wallet.get_wallet_info()?.private_keys_enabled {
-        panic!("Wallet is not a multisig wallet");
+        return Err(WalletOpsError::NotMultisigWallet);
     }
 
     let bal = wallet.get_balances()?;
     if bal.mine.trusted.to_sat() < amount.to_sat() {
-        panic!("Insufficient balance to send tx. Current balance: {}", bal.mine.trusted);
+        return Err(WalletOpsError::InsufficientBalance);
     }
 
     let unspent_txs: Vec<ListUnspentResultEntry> = wallet.list_all_unspent(None)?;
     if unspent_txs.is_empty() {
-        panic!("No unspent transactions");
+        return Err(WalletOpsError::NoUnspentTransactions);
     }
 
     // Based on the strategy, select UTXOs
-    let selected_utxos = strat_handler(&unspent_txs, amount, fee_amount, utxo_strat)?;
+    let selected_utxos = strat_handler(&unspent_txs, amount, fee_amount, utxo_strat)
+        .map_err(|e| WalletOpsError::Other(e.to_string()))?;
 
     let mut tx_inputs: Vec<CreateRawTransactionInput> = Vec::new();
     let mut total_amount = Amount::from_sat(0);
@@ -306,27 +332,27 @@ pub fn create_psbt(wallet_name: &str, recipient: &Address, amount: Amount, fee_a
     // Add change output if there's any remaining amount
     let change_amount = total_amount - amount - fee_amount;
     if change_amount.to_sat() > 0 {
-        let change_address = wallet.new_address(&bitcoincore_rpc::json::AddressType::Bech32)?;
+        let change_address = wallet.new_address(&AddressType::Bech32)?;
         tx_outputs.insert(change_address.to_string(), change_amount);
     }
 
     let locktime = None;
-    let options =  None; // TODO: can optionally specify the fee rate here, otherwise it will have the wallet estimate it
+    // TODO: can optionally specify the fee rate here, otherwise it will have the wallet estimate it
+    let options = None;
     let bip32derivs = None;
-    let client = create_rpc_client(settings, Some(wallet_name));
-    let psbt: WalletCreateFundedPsbtResult = client.wallet_create_funded_psbt(&tx_inputs[..], &tx_outputs, locktime, options, bip32derivs)?;
+    let client = create_rpc_client(settings, Some(wallet_name))?;
+    let psbt: WalletCreateFundedPsbtResult = client
+        .wallet_create_funded_psbt(&tx_inputs[..], &tx_outputs, locktime, options, bip32derivs)?;
 
     info!("PSBT: {:#?}", psbt);
 
     Ok(())
 }
 
-pub fn process_psbt(wallet_name: &str, psbt: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let wallet: Wallet = Wallet::new(wallet_name, settings);
-    let signed_psbt = wallet.process_psbt(&psbt)?;
+pub fn process_psbt(wallet_name: &str, psbt: &str, settings: &Settings) -> Result<(), WalletOpsError> {
+    let wallet: Wallet = Wallet::new(wallet_name, settings)?;
+    let signed_psbt = wallet.process_psbt(psbt)?;
     info!("Signed PSBT: {:#?}", signed_psbt);
 
     Ok(())
 }
-
-

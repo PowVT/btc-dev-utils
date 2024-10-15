@@ -1,13 +1,34 @@
-use std::{collections::{HashMap, VecDeque}, error::Error, process::{exit, Command}};
+use std::{collections::{HashMap, VecDeque}, error::Error, fmt};
 
 use bitcoin::Amount;
 use bitcoincore_rpc::json::ListUnspentResultEntry;
 
-use crate::settings::Settings;
 
-pub enum Target {
-    Bitcoin,
-    Ord
+#[derive(Debug)]
+pub enum UtilsError {
+    ExternalXpubNotFound,
+    InternalXpubNotFound,
+    InsufficientUTXOs,
+    JsonParsingError(serde_json::Error),
+}
+
+impl fmt::Display for UtilsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UtilsError::ExternalXpubNotFound => write!(f, "External xpub descriptor not found"),
+            UtilsError::InternalXpubNotFound => write!(f, "Internal xpub descriptor not found"),
+            UtilsError::InsufficientUTXOs => write!(f, "Insufficient UTXOs to meet target amount"),
+            UtilsError::JsonParsingError(e) => write!(f, "JSON parsing error: {}", e),
+        }
+    }
+}
+
+impl Error for UtilsError {}
+
+impl From<serde_json::Error> for UtilsError {
+    fn from(err: serde_json::Error) -> Self {
+        UtilsError::JsonParsingError(err)
+    }
 }
 
 #[derive(Clone)]
@@ -18,66 +39,21 @@ pub enum UTXOStrategy {
     SmallestFirst
 }
 
-/// Run arbitrary command on the btc or ord services
-
-pub fn run_command(command: &str, target: Target, settings: &Settings) -> String {
-    let mut full_command = String::from(command);
-
-    if let Target::Bitcoin = target {
-        let btc_cmd: String = format!(
-            "./bitcoin-core/src/bitcoin-cli -{} -rpcuser={} -rpcpassword={} ",
-            settings.network,
-            settings.bitcoin_rpc_username,
-            settings.bitcoin_rpc_password
-        );
-        full_command = format!("{}{}", btc_cmd, command);
-    }
-
-    if let Target::Ord = target {
-        let ord_cmd: String = format!(
-            "./ord/target/release/ord --{} --bitcoin-rpc-username={} --bitcoin-rpc-password={} ",
-            settings.network,
-            settings.bitcoin_rpc_username,
-            settings.bitcoin_rpc_password
-        );
-        full_command = format!("{}{}", ord_cmd, command);
-    }
-
-    let output = match Command::new("sh")
-        .arg("-c")
-        .arg(&full_command)
-        .output() {
-            Ok(output) => output,
-            Err(e) => {
-                eprintln!("Failed to execute command: {}", e);
-                exit(1); // Terminate the program with exit code 1
-            }
-        };
-    if !output.status.success() {
-        let error_message = String::from_utf8_lossy(&output.stderr);
-        eprintln!("Command failed: {}\nError: {}", full_command, error_message);
-        exit(1); // Terminate the program with exit code 1
-    };
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
-    return stdout;
-}
-
 /// Extract xpubs from descriptors
 
 pub fn extract_int_ext_xpubs(
     mut xpubs: HashMap<String,String>,
     descriptors_array: Vec<serde_json::Value>,
     i: usize
-) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+) -> Result<HashMap<String, String>, UtilsError> {
     // Find the correct descriptors for external and internal xpubs
     let external_xpub = descriptors_array
         .iter()
         .find(|desc| {
             desc["desc"].as_str().unwrap_or_default().starts_with("wpkh") && desc["desc"].as_str().unwrap_or_default().contains("/0/*")
         })
-        .ok_or("External xpub descriptor not found")?["desc"]
-        .as_str().ok_or("External xpub descriptor not found")?
+        .ok_or(UtilsError::ExternalXpubNotFound)?["desc"]
+        .as_str().ok_or(UtilsError::ExternalXpubNotFound)?
         .to_string();
 
     let internal_xpub = descriptors_array
@@ -85,8 +61,8 @@ pub fn extract_int_ext_xpubs(
         .find(|desc| {
             desc["desc"].as_str().unwrap_or_default().starts_with("wpkh") && desc["desc"].as_str().unwrap_or_default().contains("/1/*")
         })
-        .ok_or("Internal xpub descriptor not found")?["desc"]
-        .as_str().ok_or("Internal xpub descriptor not found")?
+        .ok_or(UtilsError::InternalXpubNotFound)?["desc"]
+        .as_str().ok_or(UtilsError::InternalXpubNotFound)?
         .to_string();
 
     // formatting notes: https://bitcoincoredocs.com/descriptors.html
@@ -111,12 +87,13 @@ pub fn strat_handler(
     target_amount: Amount,
     fee_amount: Amount,
     utxo_strategy: UTXOStrategy
-) -> Result<Vec<ListUnspentResultEntry>, Box<dyn Error>> {
+) -> Result<Vec<ListUnspentResultEntry>, UtilsError> {
     match utxo_strategy {
-        UTXOStrategy::BranchAndBound => select_utxos_branch_and_bound(utxos, target_amount, fee_amount).ok_or("Unable to find sufficient UTXOs".into()),
-        UTXOStrategy::Fifo => Ok(select_utxos_fifo(utxos, target_amount, fee_amount)),
-        UTXOStrategy::LargestFirst => Ok(select_utxos_largest_first(utxos, target_amount, fee_amount)),
-        UTXOStrategy::SmallestFirst => Ok(select_utxos_smallest_first(utxos, target_amount, fee_amount)),
+        UTXOStrategy::BranchAndBound => select_utxos_branch_and_bound(utxos, target_amount, fee_amount)
+            .ok_or(UtilsError::InsufficientUTXOs),
+        UTXOStrategy::Fifo => select_utxos_fifo(utxos, target_amount, fee_amount),
+        UTXOStrategy::LargestFirst => select_utxos_largest_first(utxos, target_amount, fee_amount),
+        UTXOStrategy::SmallestFirst => select_utxos_smallest_first(utxos, target_amount, fee_amount),
     }
 }
 
@@ -166,7 +143,7 @@ fn select_utxos_fifo(
     utxos: &[ListUnspentResultEntry],
     target_amount: Amount,
     fee_amount: Amount,
-) -> Vec<ListUnspentResultEntry> {
+) -> Result<Vec<ListUnspentResultEntry>, UtilsError> {
     let sorted_utxos = utxos.to_vec();
     return select_utxos(sorted_utxos, target_amount, fee_amount);
 }
@@ -175,7 +152,7 @@ fn select_utxos_largest_first(
     utxos: &[ListUnspentResultEntry],
     target_amount: Amount,
     fee_amount: Amount,
-) -> Vec<ListUnspentResultEntry> {
+) -> Result<Vec<ListUnspentResultEntry>, UtilsError> {
     // Sort UTXOs by amount in descending order
     let mut sorted_utxos = utxos.to_vec();
     sorted_utxos.sort_by(|a, b| b.amount.cmp(&a.amount));
@@ -187,7 +164,7 @@ fn select_utxos_smallest_first(
     utxos: &[ListUnspentResultEntry],
     target_amount: Amount,
     fee_amount: Amount,
-) -> Vec<ListUnspentResultEntry> {
+) -> Result<Vec<ListUnspentResultEntry>, UtilsError> {
     // Sort UTXOs by amount in descending order
     let mut sorted_utxos = utxos.to_vec();
     sorted_utxos.sort_by(|a, b| a.amount.cmp(&b.amount));
@@ -199,7 +176,7 @@ fn select_utxos(
     sorted_utxos: Vec<ListUnspentResultEntry>,
     target_amount: Amount,
     fee_amount: Amount
-) -> Vec<ListUnspentResultEntry> {
+) -> Result<Vec<ListUnspentResultEntry>, UtilsError> {
     let mut selected_utxos = Vec::new();
     let mut total_amount = Amount::from_sat(0);
 
@@ -208,13 +185,9 @@ fn select_utxos(
         total_amount += utxo.amount;
 
         if total_amount >= target_amount + fee_amount {
-            break;
+            return Ok(selected_utxos);
         }
     }
 
-    if total_amount < target_amount + fee_amount {
-        panic!("Insufficient UTXOs to meet target amount");
-    }
-
-    selected_utxos
+    Err(UtilsError::InsufficientUTXOs)
 }

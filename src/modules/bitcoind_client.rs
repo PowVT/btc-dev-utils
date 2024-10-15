@@ -1,186 +1,188 @@
-use std::str::FromStr;
+use std::{error::Error, fmt, str::FromStr};
 
 use bitcoin::{Address, Amount};
 use bitcoincore_rpc::json::{GetRawTransactionResult, GetTxOutResult, ScanTxOutRequest};
-use bitcoincore_rpc::{json::FinalizePsbtResult, RpcApi, RawTx, Client};
+use bitcoincore_rpc::{json::FinalizePsbtResult, RpcApi, Client, Error as RpcError};
 
 use log::info;
 use serde_json::{json, Value};
 
 use crate::settings::Settings;
-use crate::modules::bitcoind_conn::create_rpc_client;
+use crate::modules::bitcoind_conn::{create_rpc_client, ClientError};
+
+#[derive(Debug)]
+pub enum BitcoindError {
+    RpcError(RpcError),
+    ClientError(ClientError),
+    InvalidTxId,
+    InsufficientConfirmations,
+    TxOutNotFound,
+    IncompletePsbt,
+    NoHexInFinalizedPsbt,
+    Other(String),
+}
+
+impl fmt::Display for BitcoindError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BitcoindError::RpcError(e) => write!(f, "RPC error: {}", e),
+            BitcoindError::ClientError(e) => write!(f, "Client error: {}", e),
+            BitcoindError::InvalidTxId => write!(f, "Invalid transaction ID"),
+            BitcoindError::InsufficientConfirmations => write!(f, "Insufficient confirmations"),
+            BitcoindError::TxOutNotFound => write!(f, "TxOut not found"),
+            BitcoindError::IncompletePsbt => write!(f, "PSBT is not complete"),
+            BitcoindError::NoHexInFinalizedPsbt => write!(f, "No hex found in FinalizePsbtResult"),
+            BitcoindError::Other(s) => write!(f, "Other error: {}", s),
+        }
+    }
+}
+
+impl Error for BitcoindError {}
+
+impl From<RpcError> for BitcoindError {
+    fn from(err: RpcError) -> Self {
+        BitcoindError::RpcError(err)
+    }
+}
+
+impl From<ClientError> for BitcoindError {
+    fn from(err: ClientError) -> Self {
+        BitcoindError::ClientError(err)
+    }
+}
 
 /// Blockchain Ops
 
-pub fn get_block_height(settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client: Client = create_rpc_client(settings, None);
-
+pub fn get_block_height(settings: &Settings) -> Result<(), BitcoindError> {
+    let client: Client = create_rpc_client(settings, None)?;
     let height = client.get_block_count()?;
-
     info!("Block height: {}", height);
-
     Ok(())
 }
 
-pub fn mine_blocks(blocks: Option<u64>, address: &Address, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client: Client = create_rpc_client(settings, None);
-
-    info!("Mining {} blocks", blocks.unwrap_or(1));
-    client.generate_to_address(blocks.unwrap_or(1), address)?;
-    info!("Mined {} blocks to address {}", blocks.unwrap_or(1), address);
-
+pub fn mine_blocks(blocks: Option<u64>, address: &Address, settings: &Settings) -> Result<(), BitcoindError> {
+    let client: Client = create_rpc_client(settings, None)?;
+    let blocks_to_mine = blocks.unwrap_or(1);
+    info!("Mining {} blocks", blocks_to_mine);
+    client.generate_to_address(blocks_to_mine, address)?;
+    info!("Mined {} blocks to address {}", blocks_to_mine, address);
     Ok(())
 }
 
-pub fn rescan_blockchain(settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client = create_rpc_client(settings, None);
-    let _ = client.rescan_blockchain(Some(0), None);
-
+pub fn rescan_blockchain(settings: &Settings) -> Result<(), BitcoindError> {
+    let client = create_rpc_client(settings, None)?;
+    client.rescan_blockchain(Some(0), None)?;
     Ok(())
 }
 
 /// Transaction Ops
- 
-pub fn get_tx(txid: &str, settings: &Settings) -> Result<GetRawTransactionResult, Box<dyn std::error::Error>> {
-    let client: Client = create_rpc_client(settings, None); 
 
-    let txid_converted = bitcoin::Txid::from_str(txid)?;
+pub fn get_tx(txid: &str, settings: &Settings) -> Result<GetRawTransactionResult, BitcoindError> {
+    let client: Client = create_rpc_client(settings, None)?;
+    let txid_converted = bitcoin::Txid::from_str(txid).map_err(|_| BitcoindError::InvalidTxId)?;
     let tx = client.get_raw_transaction_info(&txid_converted, None)?;
-
     Ok(tx)
 }
 
-pub fn get_tx_wrapper(txid: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+pub fn get_tx_wrapper(txid: &str, settings: &Settings) -> Result<(), BitcoindError> {
     let tx = get_tx(txid, settings)?;
-
     info!("{:#?}", tx);
-
     Ok(())
 }
 
-pub fn get_tx_out(txid: &str, vout: u32, confirmations: Option<u32>, settings: &Settings) -> Result<GetTxOutResult, Box<dyn std::error::Error>> {
-    let client: Client = create_rpc_client(settings, None);
+pub fn get_tx_out(txid: &str, vout: u32, confirmations: Option<u32>, settings: &Settings) -> Result<GetTxOutResult, BitcoindError> {
+    let client: Client = create_rpc_client(settings, None)?;
+    let txid_converted = bitcoin::Txid::from_str(txid).map_err(|_| BitcoindError::InvalidTxId)?;
+    let tx_out = client.get_tx_out(&txid_converted, vout, None)?
+        .ok_or(BitcoindError::TxOutNotFound)?;
 
-    let txid_converted = bitcoin::Txid::from_str(txid)?;
-    let tx_out = client.get_tx_out(&txid_converted, vout, None)?; // None = include_mempool
-
-    match tx_out {
-        Some(tx_out) => {
-            if let Some(confirmations) = confirmations {
-                if tx_out.confirmations >= confirmations {
-                    Ok(tx_out)
-                } else {
-                    Err(format!("TxOut not enough confirmations").into())
-                }
-            } else {
-                Ok(tx_out)
-            }
-        },
-        None => {
-            Err(format!("TxOut not found").into())
-        },
-    }
-}
-
-pub fn get_tx_out_wrapper(txid: &str, vout: u32, confirmations: Option<u32>, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let tx_out = get_tx_out(txid, vout, confirmations,settings)?;
-
-    info!("{:#?}", tx_out);
-
-    Ok(())
-}
-
-pub fn broadcast_tx(client: &Client, tx_hex: &str, max_fee_rate: Option<f64>) -> Result<String, Box<dyn std::error::Error>> {
-    let max_fee_rate = match max_fee_rate {
-        Some(fee_rate) => {
-            let fee_rate = fee_rate as f64 / 100_000_000.0 * 1000.0;
-            format!("{:.8}", fee_rate).parse::<f64>().unwrap()
+    if let Some(required_confirmations) = confirmations {
+        if tx_out.confirmations < required_confirmations {
+            return Err(BitcoindError::InsufficientConfirmations);
         }
-        None => 0.1, // the default fee rate is 0.1 BTC/kB
-    };
-    
+    }
+
+    Ok(tx_out)
+}
+
+pub fn get_tx_out_wrapper(txid: &str, vout: u32, confirmations: Option<u32>, settings: &Settings) -> Result<(), BitcoindError> {
+    let tx_out = get_tx_out(txid, vout, confirmations, settings)?;
+    info!("{:#?}", tx_out);
+    Ok(())
+}
+
+pub fn broadcast_tx(client: &Client, tx_hex: &str, max_fee_rate: Option<f64>) -> Result<String, BitcoindError> {
+    let max_fee_rate = max_fee_rate.map(|fee_rate| {
+        (fee_rate / 100_000_000.0 * 1000.0).to_string().parse::<f64>().unwrap_or(0.1)
+    }).unwrap_or(0.1);
+
     let tx_id: Value = client.call(
         "sendrawtransaction",
         &[json!(tx_hex), json!(max_fee_rate)],
     )?;
-    let tx_id_str = tx_id.as_str().ok_or("Invalid tx_id response")?.to_string();
+    let tx_id_str = tx_id.as_str()
+        .ok_or_else(|| BitcoindError::Other("Invalid tx_id response".to_string()))?
+        .to_string();
     info!("Broadcasted Tx ID: {}", tx_id_str);
-
     Ok(tx_id_str)
 }
 
-pub fn broadcast_tx_wrapper(tx_hex: &str, max_fee_rate: f64, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client: Client = create_rpc_client(settings, None);
-
-    let _ = broadcast_tx(&client, tx_hex, Some(max_fee_rate))?;
-
+pub fn broadcast_tx_wrapper(tx_hex: &str, max_fee_rate: f64, settings: &Settings) -> Result<(), BitcoindError> {
+    let client: Client = create_rpc_client(settings, None)?;
+    broadcast_tx(&client, tx_hex, Some(max_fee_rate))?;
     Ok(())
 }
 
-pub fn decode_raw_tx(tx_hex: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client = create_rpc_client(settings, None);
-
+pub fn decode_raw_tx(tx_hex: &str, settings: &Settings) -> Result<(), BitcoindError> {
+    let client = create_rpc_client(settings, None)?;
     let tx = client.decode_raw_transaction(tx_hex, None)?;
     info!("{:#?}", tx);
-
     Ok(())
 }
 
 /// PSBT Ops
 
-pub fn decode_psbt(psbt: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client = create_rpc_client(settings, None);
-
+pub fn decode_psbt(psbt: &str, settings: &Settings) -> Result<(), BitcoindError> {
+    let client = create_rpc_client(settings, None)?;
     let psbt: serde_json::Value = client.call("decodepsbt", &[json!(psbt)])?;
     info!("PSBT: {:#?}", psbt);
-
     Ok(())
 }
 
-pub fn analyze_psbt(psbt: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client = create_rpc_client(settings, None);
-
+pub fn analyze_psbt(psbt: &str, settings: &Settings) -> Result<(), BitcoindError> {
+    let client = create_rpc_client(settings, None)?;
     let psbt: serde_json::Value = client.call("analyzepsbt", &[json!(psbt)])?;
     info!("PSBT: {:#?}", psbt);
-
     Ok(())
 }
 
-pub fn combine_psbts(psbts: &Vec<String>, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client = create_rpc_client(settings, None);
-
+pub fn combine_psbts(psbts: &Vec<String>, settings: &Settings) -> Result<(), BitcoindError> {
+    let client = create_rpc_client(settings, None)?;
     let res = client.combine_psbt(&psbts[..])?;
     info!("CombinedPSBT: {:#?}", res);
-
     Ok(())
 }
 
-pub fn finalize_psbt(psbt: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client = create_rpc_client(settings, None);
-
+pub fn finalize_psbt(psbt: &str, settings: &Settings) -> Result<(), BitcoindError> {
+    let client = create_rpc_client(settings, None)?;
     let res = client.finalize_psbt(psbt, None)?;
     info!("FinalizedPSBT: {:#?}", res);
-
     Ok(())
 }
 
-pub fn finalize_psbt_and_broadcast(psbt: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client: Client = create_rpc_client(settings, None);
-
+pub fn finalize_psbt_and_broadcast(psbt: &str, settings: &Settings) -> Result<(), BitcoindError> {
+    let client: Client = create_rpc_client(settings, None)?;
     let res: FinalizePsbtResult = client.finalize_psbt(psbt, None)?;
     if !res.complete {
-        return Err("PSBT does not have all necessary signatures".into());
+        return Err(BitcoindError::IncompletePsbt);
     }
-    let raw_hex: String = match res.hex {
-        Some(hex) => hex.raw_hex(),
-        None => return Err("No hex found in FinalizePsbtResult".into()),
-    };
+    let raw_hex: String = res.hex.ok_or(BitcoindError::NoHexInFinalizedPsbt)?
+        .iter().map(|b| format!("{:02x}", b)).collect();
 
-    info!("FinalizedPSBT: {:#?}", raw_hex);
+    info!("FinalizedPSBT: {}", raw_hex);
 
-    let tx_id: String = broadcast_tx(&client, &raw_hex, Some(0.0))?; // passing 0 as max fee rate will have the wallet estimate the fee rate
+    let tx_id: String = broadcast_tx(&client, &raw_hex, Some(0.0))?;
     info!("Tx broadcasted: {}", tx_id);
-
     Ok(())
 }
 
@@ -188,8 +190,8 @@ pub fn finalize_psbt_and_broadcast(psbt: &str, settings: &Settings) -> Result<()
 
 /// NOTE: this function does not check if the UTXO is from coinbase rewards or not, it only
 /// checks if the UTXO has greater than or equal to 6 confirmations.
-pub fn get_spendable_balance(address: &Address, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
-    let client = create_rpc_client(settings, None);
+pub fn get_spendable_balance(address: &Address, settings: &Settings) -> Result<(), BitcoindError> {
+    let client = create_rpc_client(settings, None)?;
 
     let descriptor = format!("addr({})", address);
     let scan_request = ScanTxOutRequest::Single(descriptor);

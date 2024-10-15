@@ -14,6 +14,11 @@ pub(crate) struct Settings {
 }
 
 impl Settings {
+    pub(crate) fn from_toml_file(path: &PathBuf) -> Result<Self> {
+        let toml = std::fs::read_to_string(path)?;
+        Ok(toml::from_str(&toml)?)
+    }
+
     pub(crate) fn to_toml_file(&self, path: &PathBuf) -> Result<()> {
         let toml = toml::to_string(self)?;
         std::fs::write(path, toml)?;
@@ -30,12 +35,5 @@ impl Default for Settings {
             bitcoin_rpc_password: "password".to_string(),
             create_wallets: true,
         }
-    }
-}
-
-impl Settings {
-    pub(crate) fn from_toml_file(path: &PathBuf) -> Result<Self> {
-        let toml = std::fs::read_to_string(path)?;
-        Ok(toml::from_str(&toml)?)
     }
 }

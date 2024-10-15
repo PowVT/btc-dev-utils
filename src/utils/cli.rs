@@ -130,7 +130,6 @@ pub enum Action {
     FinalizePsbt,
     FinalizePsbtAndBroadcast,
     VerifySignedTx,
-    InscribeOrd
 }
 
 fn parse_amount(s: &str) -> Result<Amount, &'static str> {

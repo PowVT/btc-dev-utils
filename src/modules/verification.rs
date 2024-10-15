@@ -1,22 +1,63 @@
-use bitcoin::{consensus::deserialize, OutPoint, Transaction, TxOut};
+use std::fmt;
+
+use log::info;
+
+use bitcoin::{consensus::{deserialize, encode::Error as EncodeError}, OutPoint, Transaction, TxOut};
 
 use crate::{modules::bitcoind_client::get_tx, settings::Settings};
 
 use super::bitcoind_client::get_tx_out;
 
-pub fn verify_signed_tx(tx_hex: &str, settings: &Settings) -> Result<(), Box<dyn std::error::Error>> {
+#[derive(Debug)]
+pub enum VerificationError {
+    HexDecodeError(hex::FromHexError),
+    DeserializationError(EncodeError),
+    UTXOAlreadySpent(usize),
+    UTXOCheckError(usize, String),
+    TransactionVerificationFailed(String),
+    UTXOError(String),
+}
+
+impl fmt::Display for VerificationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VerificationError::HexDecodeError(e) => write!(f, "Failed to decode transaction hex: {}", e),
+            VerificationError::DeserializationError(e) => write!(f, "Failed to deserialize transaction: {}", e),
+            VerificationError::UTXOAlreadySpent(index) => write!(f, "UTXO for input {} has already been spent", index),
+            VerificationError::UTXOCheckError(index, e) => write!(f, "Error checking UTXO for input {}: {}", index, e),
+            VerificationError::TransactionVerificationFailed(e) => write!(f, "Transaction verification failed: {}", e),
+            VerificationError::UTXOError(e) => write!(f, "Error checking UTXO: {}", e),
+        }
+    }
+}
+
+impl std::error::Error for VerificationError {}
+
+impl From<hex::FromHexError> for VerificationError {
+    fn from(err: hex::FromHexError) -> Self {
+        VerificationError::HexDecodeError(err)
+    }
+}
+
+impl From<bitcoin::consensus::encode::Error> for VerificationError {
+    fn from(err: bitcoin::consensus::encode::Error) -> Self {
+        VerificationError::DeserializationError(err)
+    }
+}
+
+pub fn verify_signed_tx(tx_hex: &str, settings: &Settings) -> Result<(), VerificationError> {
     let tx: Transaction = deserialize(&hex::decode(tx_hex)?)?;
 
-    println!("Verifying transaction: {}", tx.txid());
-    println!("Number of inputs: {}", tx.input.len());
+    info!("Verifying transaction: {}", tx.txid());
+    info!("Number of inputs: {}", tx.input.len());
 
     // Check if UTXOs are still unspent
     for (index, input) in tx.input.iter().enumerate() {
-        println!("Checking UTXO for input {}", index);
+        info!("Checking UTXO for input {}", index);
         match is_utxo_unspent(&input.previous_output, settings) {
-            Ok(true) => println!("UTXO for input {} is unspent", index), // UTXO is unspent, continue
-            Ok(false) => return Err(format!("UTXO for input {} has already been spent", index).into()),
-            Err(e) => return Err(format!("Error checking UTXO for input {}: {}", index, e).into()),
+            Ok(true) => info!("UTXO for input {} is unspent", index), // UTXO is unspent, continue
+            Ok(false) => return Err(VerificationError::UTXOAlreadySpent(index)),
+            Err(e) => return Err(VerificationError::UTXOCheckError(index, e.to_string())),
         }
     }
 
@@ -29,19 +70,19 @@ pub fn verify_signed_tx(tx_hex: &str, settings: &Settings) -> Result<(), Box<dyn
                     script_pubkey: bitcoin::ScriptBuf::from(output.script_pub_key.hex.clone()),
                 }
             }),
-            Err(_) => None,
+            Err(_) => None
         }
     };
 
     // Verify the transaction. For each input, check if unlocking script is valid based on the corresponding TxOut.
-    tx.verify(&mut spent).map_err(|e| {format!("Transaction verification failed: {:?}", e)})?;
+    tx.verify(&mut spent).map_err(|e| VerificationError::TransactionVerificationFailed(e.to_string()))?;
 
-    println!("Transaction verified successfully");
+    info!("Transaction verified successfully");
 
     Ok(())
 }
 
-fn is_utxo_unspent(outpoint: &OutPoint, settings: &Settings) -> Result<bool, Box<dyn std::error::Error>> {
+fn is_utxo_unspent(outpoint: &OutPoint, settings: &Settings) -> Result<bool, VerificationError> {
     let txid = outpoint.txid.to_string();
 
     match get_tx_out(&txid, outpoint.vout, None, settings) {
@@ -50,7 +91,7 @@ fn is_utxo_unspent(outpoint: &OutPoint, settings: &Settings) -> Result<bool, Box
             if e.to_string().contains("TxOut not found") {
                 Ok(false)  // UTXO doesn't exist (already spent)
             } else {
-                Err(format!("Error checking UTXO: {}", e).into())
+                Err(VerificationError::UTXOError(e.to_string()))
             }
         }
     }
