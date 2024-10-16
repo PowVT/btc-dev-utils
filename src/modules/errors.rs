@@ -1,4 +1,4 @@
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, io};
 
 use bitcoincore_rpc::Error as RpcError;
 use bitcoin::consensus::encode::Error as EncodeError;
@@ -269,5 +269,52 @@ impl Error for UtilsError {}
 impl From<serde_json::Error> for UtilsError {
     fn from(err: serde_json::Error) -> Self {
         UtilsError::JsonParsingError(err)
+    }
+}
+
+/// Settings Errors
+
+#[derive(Debug)]
+pub enum SettingsError {
+    Io(io::Error),
+    TomlDe(toml::de::Error),
+    TomlSer(toml::ser::Error),
+}
+
+impl fmt::Display for SettingsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SettingsError::Io(err) => write!(f, "IO error: {}", err),
+            SettingsError::TomlDe(err) => write!(f, "TOML deserialization error: {}", err),
+            SettingsError::TomlSer(err) => write!(f, "TOML serialization error: {}", err),
+        }
+    }
+}
+
+impl Error for SettingsError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            SettingsError::Io(err) => Some(err),
+            SettingsError::TomlDe(err) => Some(err),
+            SettingsError::TomlSer(err) => Some(err),
+        }
+    }
+}
+
+impl From<io::Error> for SettingsError {
+    fn from(err: io::Error) -> Self {
+        SettingsError::Io(err)
+    }
+}
+
+impl From<toml::de::Error> for SettingsError {
+    fn from(err: toml::de::Error) -> Self {
+        SettingsError::TomlDe(err)
+    }
+}
+
+impl From<toml::ser::Error> for SettingsError {
+    fn from(err: toml::ser::Error) -> Self {
+        SettingsError::TomlSer(err)
     }
 }

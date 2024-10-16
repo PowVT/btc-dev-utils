@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, fmt};
 
 use log::{error, info};
 
@@ -17,6 +17,7 @@ use modules::client::{
     get_tx_wrapper,
     rescan_blockchain
 };
+use modules::errors::SettingsError;
 use modules::wallet_ops::{
     create_psbt,
     get_address_info,
@@ -39,22 +40,55 @@ use settings::Settings;
 
 use utils::cli::{Cli, Action};
 
-mod modules;
 mod settings;
+mod modules;
 mod utils;
-fn main() -> Result<(), Box<dyn Error>> {
+
+#[derive(Debug)]
+enum AppError {
+    SettingsError(SettingsError),
+    Other(Box<dyn Error>),
+}
+
+impl std::error::Error for AppError {}
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AppError::SettingsError(err) => write!(f, "Settings error: {}", err),
+            AppError::Other(err) => write!(f, "Other error: {}", err),
+        }
+    }
+}
+
+impl From<SettingsError> for AppError {
+    fn from(err: SettingsError) -> Self {
+        AppError::SettingsError(err)
+    }
+}
+
+impl From<Box<dyn Error>> for AppError {
+    fn from(err: Box<dyn Error>) -> Self {
+        AppError::Other(err)
+    }
+}
+
+fn main() -> Result<(), AppError> {
     env_logger::init();
 
     let args = Cli::parse();
 
     let settings = match Settings::from_toml_file(&args.settings_file) {
         Ok(settings) => settings,
-        Err(e) => {
-            error!("Error reading settings file: {}", e);
+        Err(SettingsError::Io(_)) => {
             info!("Creating a new settings file at {}", args.settings_file.display());
             let settings = Settings::default();
-            settings.to_toml_file(&args.settings_file)?;
+            settings.to_toml_file(&args.settings_file).map_err(AppError::from)?;
             settings
+        }
+        Err(err) => {
+            error!("Error reading settings file: {}", err);
+            return Err(err.into());
         }
     };
 
