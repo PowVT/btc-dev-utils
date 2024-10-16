@@ -1,49 +1,16 @@
-use std::fmt;
-
 use log::info;
 
-use bitcoin::{consensus::{deserialize, encode::Error as EncodeError}, OutPoint, Transaction, TxOut};
+use bitcoin::{consensus::deserialize, OutPoint, Transaction, TxOut};
 
-use crate::{modules::bitcoind_client::get_tx, settings::Settings};
+use crate::{
+    modules::{
+        client::get_tx,
+        errors::VerificationError
+    },
+    settings::Settings
+};
 
-use super::bitcoind_client::get_tx_out;
-
-#[derive(Debug)]
-pub enum VerificationError {
-    HexDecodeError(hex::FromHexError),
-    DeserializationError(EncodeError),
-    UTXOAlreadySpent(usize),
-    UTXOCheckError(usize, String),
-    TransactionVerificationFailed(String),
-    UTXOError(String),
-}
-
-impl fmt::Display for VerificationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            VerificationError::HexDecodeError(e) => write!(f, "Failed to decode transaction hex: {}", e),
-            VerificationError::DeserializationError(e) => write!(f, "Failed to deserialize transaction: {}", e),
-            VerificationError::UTXOAlreadySpent(index) => write!(f, "UTXO for input {} has already been spent", index),
-            VerificationError::UTXOCheckError(index, e) => write!(f, "Error checking UTXO for input {}: {}", index, e),
-            VerificationError::TransactionVerificationFailed(e) => write!(f, "Transaction verification failed: {}", e),
-            VerificationError::UTXOError(e) => write!(f, "Error checking UTXO: {}", e),
-        }
-    }
-}
-
-impl std::error::Error for VerificationError {}
-
-impl From<hex::FromHexError> for VerificationError {
-    fn from(err: hex::FromHexError) -> Self {
-        VerificationError::HexDecodeError(err)
-    }
-}
-
-impl From<bitcoin::consensus::encode::Error> for VerificationError {
-    fn from(err: bitcoin::consensus::encode::Error) -> Self {
-        VerificationError::DeserializationError(err)
-    }
-}
+use super::client::get_tx_out;
 
 pub fn verify_signed_tx(tx_hex: &str, settings: &Settings) -> Result<(), VerificationError> {
     let tx: Transaction = deserialize(&hex::decode(tx_hex)?)?;

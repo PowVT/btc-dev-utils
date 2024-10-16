@@ -1,5 +1,3 @@
-use std::{error::Error, fmt};
-
 use log::info;
 
 use serde::Deserialize;
@@ -9,55 +7,11 @@ use bitcoincore_rpc::json::{
     AddressType, GetAddressInfoResult, GetBalancesResult, GetWalletInfoResult, ListUnspentQueryOptions, ListUnspentResultEntry, WalletProcessPsbtResult
 };
 use bitcoincore_rpc::jsonrpc::serde_json::{json, Value};
-use bitcoincore_rpc::{Client, RpcApi, Error as RpcError};
+use bitcoincore_rpc::{Client, RpcApi};
 
+use crate::modules::errors::WalletError;
 use crate::settings::Settings;
-use crate::modules::bitcoind_conn::{create_rpc_client, ClientError};
-
-#[derive(Debug)]
-pub enum WalletError {
-    ClientError(ClientError),
-    WalletCreationDisabled(String),
-    AddressNetworkMismatch,
-    SigningFailed(String),
-    RpcError(RpcError),
-    AddressNotFound,
-}
-
-impl fmt::Display for WalletError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            WalletError::ClientError(err) => write!(f, "Client error: {}", err),
-            WalletError::WalletCreationDisabled(name) => write!(f, "Wallet creation disabled: {}", name),
-            WalletError::AddressNetworkMismatch => write!(f, "Address network mismatch"),
-            WalletError::SigningFailed(err) => write!(f, "Signing failed: {}", err),
-            WalletError::RpcError(err) => write!(f, "RPC error: {}", err),
-            WalletError::AddressNotFound => write!(f, "Address not found in transaction details"),
-        }
-    }
-}
-
-impl Error for WalletError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            WalletError::ClientError(err) => Some(err),
-            WalletError::RpcError(err) => Some(err),
-            _ => None,
-        }
-    }
-}
-
-impl From<ClientError> for WalletError {
-    fn from(err: ClientError) -> Self {
-        WalletError::ClientError(err)
-    }
-}
-
-impl From<RpcError> for WalletError {
-    fn from(err: RpcError) -> Self {
-        WalletError::RpcError(err)
-    }
-}
+use crate::modules::bitcoind::create_rpc_client;
 
 #[derive(Deserialize)]
 struct SendResult {

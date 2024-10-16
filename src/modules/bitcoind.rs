@@ -1,38 +1,8 @@
-use std::{error::Error, fmt};
-
-use bitcoincore_rpc::{Auth, Client, Error as RpcError};
+use bitcoincore_rpc::{Auth, Client};
 use bitcoin::Network;
 use crate::settings::Settings;
 
-#[derive(Debug)]
-pub enum ClientError {
-    CannotConnect(RpcError),
-    UnsupportedNetwork,
-}
-
-impl fmt::Display for ClientError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ClientError::CannotConnect(err) => write!(f, "Cannot connect to Bitcoin Core: {}", err),
-            ClientError::UnsupportedNetwork => write!(f, "Unsupported network"),
-        }
-    }
-}
-
-impl Error for ClientError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            ClientError::CannotConnect(err) => Some(err),
-            ClientError::UnsupportedNetwork => None,
-        }
-    }
-}
-
-impl From<RpcError> for ClientError {
-    fn from(err: RpcError) -> Self {
-        ClientError::CannotConnect(err)
-    }
-}
+use super::errors::ClientError;
 
 pub fn create_rpc_client(settings: &Settings, wallet_name: Option<&str>) -> Result<Client, ClientError> {
     let port = match settings.network {

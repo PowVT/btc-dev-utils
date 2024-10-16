@@ -4,7 +4,7 @@ use log::{error, info};
 
 use clap::Parser;
 
-use modules::bitcoind_client::{
+use modules::client::{
     analyze_psbt,
     broadcast_tx_wrapper,
     combine_psbts, decode_psbt,

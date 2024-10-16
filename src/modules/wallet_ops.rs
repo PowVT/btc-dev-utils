@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, fmt};
+use std::collections::HashMap;
 
 use log::info;
 
@@ -6,93 +6,18 @@ use serde_json::{json, Value};
 
 use bitcoin::{Address, Amount, Transaction, consensus::serialize};
 use bitcoincore_rpc::json::{AddressType, CreateRawTransactionInput, GetAddressInfoResult, GetDescriptorInfoResult, GetWalletInfoResult, ListUnspentResultEntry, WalletCreateFundedPsbtResult};
-use bitcoincore_rpc::{Client, RawTx, RpcApi, Error as RpcError};
+use bitcoincore_rpc::{Client, RawTx, RpcApi};
 
 use miniscript::bitcoin::secp256k1::Secp256k1;
 use miniscript::{Descriptor, DescriptorPublicKey};
 
 use crate::settings::Settings;
-use crate::modules::wallet::{Wallet, WalletError};
-use crate::modules::bitcoind_conn::{create_rpc_client, ClientError};
-use crate::modules::bitcoind_client::{mine_blocks, BitcoindError};
-use crate::utils::utils::{extract_int_ext_xpubs, strat_handler, UTXOStrategy, UtilsError};
+use crate::modules::wallet::Wallet;
+use crate::modules::bitcoind::create_rpc_client;
+use crate::modules::client::mine_blocks;
+use crate::utils::utils::{extract_int_ext_xpubs, strat_handler, UTXOStrategy};
 
-#[derive(Debug)]
-pub enum WalletOpsError {
-    WalletError(WalletError),
-    ClientError(ClientError),
-    RpcError(RpcError),
-    BitcoindError(BitcoindError),
-    UtilsError(UtilsError),
-    InsufficientBalance,
-    NoUnspentTransactions,
-    NotMultisigWallet,
-    DescriptorError(miniscript::Error),
-    JsonError(serde_json::Error),
-    Other(String),
-}
-
-impl fmt::Display for WalletOpsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            WalletOpsError::WalletError(err) => write!(f, "Wallet error: {}", err),
-            WalletOpsError::ClientError(err) => write!(f, "Client error: {}", err),
-            WalletOpsError::RpcError(err) => write!(f, "RPC error: {}", err),
-            WalletOpsError::BitcoindError(err) => write!(f, "Bitcoind error: {}", err),
-            WalletOpsError::UtilsError(e) => write!(f, "Utils error: {}", e),
-            WalletOpsError::InsufficientBalance => write!(f, "Insufficient balance"),
-            WalletOpsError::NoUnspentTransactions => write!(f, "No unspent transactions"),
-            WalletOpsError::NotMultisigWallet => write!(f, "Wallet is not a multisig wallet"),
-            WalletOpsError::DescriptorError(err) => write!(f, "Descriptor error: {}", err),
-            WalletOpsError::JsonError(err) => write!(f, "JSON error: {}", err),
-            WalletOpsError::Other(err) => write!(f, "Other error: {}", err),
-        }
-    }
-}
-
-impl Error for WalletOpsError {}
-
-impl From<WalletError> for WalletOpsError {
-    fn from(err: WalletError) -> Self {
-        WalletOpsError::WalletError(err)
-    }
-}
-
-impl From<ClientError> for WalletOpsError {
-    fn from(err: ClientError) -> Self {
-        WalletOpsError::ClientError(err)
-    }
-}
-
-impl From<RpcError> for WalletOpsError {
-    fn from(err: RpcError) -> Self {
-        WalletOpsError::RpcError(err)
-    }
-}
-
-impl From<BitcoindError> for WalletOpsError {
-    fn from(err: BitcoindError) -> Self {
-        WalletOpsError::BitcoindError(err)
-    }
-}
-
-impl From<UtilsError> for WalletOpsError {
-    fn from(err: UtilsError) -> Self {
-        WalletOpsError::UtilsError(err)
-    }
-}
-
-impl From<miniscript::Error> for WalletOpsError {
-    fn from(err: miniscript::Error) -> Self {
-        WalletOpsError::DescriptorError(err)
-    }
-}
-
-impl From<serde_json::Error> for WalletOpsError {
-    fn from(err: serde_json::Error) -> Self {
-        WalletOpsError::JsonError(err)
-    }
-}
+use super::errors::WalletOpsError;
 
 pub fn new_wallet(wallet_name: &str, settings: &Settings) -> Result<(), WalletOpsError> {
     Wallet::new(wallet_name, settings)?;

@@ -1,55 +1,16 @@
-use std::{error::Error, fmt, str::FromStr};
+use std::str::FromStr;
 
 use bitcoin::{Address, Amount};
 use bitcoincore_rpc::json::{GetRawTransactionResult, GetTxOutResult, ScanTxOutRequest};
-use bitcoincore_rpc::{json::FinalizePsbtResult, RpcApi, Client, Error as RpcError};
+use bitcoincore_rpc::{json::FinalizePsbtResult, RpcApi, Client};
 
 use log::info;
 use serde_json::{json, Value};
 
 use crate::settings::Settings;
-use crate::modules::bitcoind_conn::{create_rpc_client, ClientError};
+use crate::modules::bitcoind::create_rpc_client;
 
-#[derive(Debug)]
-pub enum BitcoindError {
-    RpcError(RpcError),
-    ClientError(ClientError),
-    InvalidTxId,
-    InsufficientConfirmations,
-    TxOutNotFound,
-    IncompletePsbt,
-    NoHexInFinalizedPsbt,
-    Other(String),
-}
-
-impl fmt::Display for BitcoindError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            BitcoindError::RpcError(e) => write!(f, "RPC error: {}", e),
-            BitcoindError::ClientError(e) => write!(f, "Client error: {}", e),
-            BitcoindError::InvalidTxId => write!(f, "Invalid transaction ID"),
-            BitcoindError::InsufficientConfirmations => write!(f, "Insufficient confirmations"),
-            BitcoindError::TxOutNotFound => write!(f, "TxOut not found"),
-            BitcoindError::IncompletePsbt => write!(f, "PSBT is not complete"),
-            BitcoindError::NoHexInFinalizedPsbt => write!(f, "No hex found in FinalizePsbtResult"),
-            BitcoindError::Other(s) => write!(f, "Other error: {}", s),
-        }
-    }
-}
-
-impl Error for BitcoindError {}
-
-impl From<RpcError> for BitcoindError {
-    fn from(err: RpcError) -> Self {
-        BitcoindError::RpcError(err)
-    }
-}
-
-impl From<ClientError> for BitcoindError {
-    fn from(err: ClientError) -> Self {
-        BitcoindError::ClientError(err)
-    }
-}
+use super::errors::BitcoindError;
 
 /// Blockchain Ops
 

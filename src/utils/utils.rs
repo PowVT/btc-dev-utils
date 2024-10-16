@@ -1,35 +1,9 @@
-use std::{collections::{HashMap, VecDeque}, error::Error, fmt};
+use std::collections::{HashMap, VecDeque};
 
 use bitcoin::Amount;
 use bitcoincore_rpc::json::ListUnspentResultEntry;
 
-
-#[derive(Debug)]
-pub enum UtilsError {
-    ExternalXpubNotFound,
-    InternalXpubNotFound,
-    InsufficientUTXOs,
-    JsonParsingError(serde_json::Error),
-}
-
-impl fmt::Display for UtilsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            UtilsError::ExternalXpubNotFound => write!(f, "External xpub descriptor not found"),
-            UtilsError::InternalXpubNotFound => write!(f, "Internal xpub descriptor not found"),
-            UtilsError::InsufficientUTXOs => write!(f, "Insufficient UTXOs to meet target amount"),
-            UtilsError::JsonParsingError(e) => write!(f, "JSON parsing error: {}", e),
-        }
-    }
-}
-
-impl Error for UtilsError {}
-
-impl From<serde_json::Error> for UtilsError {
-    fn from(err: serde_json::Error) -> Self {
-        UtilsError::JsonParsingError(err)
-    }
-}
+use crate::modules::errors::UtilsError;
 
 #[derive(Clone)]
 pub enum UTXOStrategy {
