@@ -1,5 +1,7 @@
 # A Collection of Bitcoin Development Tools
 
+<h3 style="color: red">⚠️ This code is no longer maintained in favor of the <a href="https://github.com/PowVT/satoshi-suite">satoshi-suite</a></h3>
+
 ## Overview
 
 `btc-dev-utils` is designed to automate Bitcoin development tasks. It is ideal for developers who want to test Bitcoin applications without using real Bitcoin on the mainnet and need a bootstrapped BTC execution environment in which to send test transactions.
